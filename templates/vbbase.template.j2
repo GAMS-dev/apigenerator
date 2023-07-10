@@ -1,0 +1,62 @@
+{% block header -%}{%- endblock %}
+'
+' GAMS - Loading mechanism for GAMS Expert-Level APIs
+'
+' Copyright (c) 2016-{{ api.SysYear }} GAMS Software GmbH <support@gams.com>
+' Copyright (c) 2016-{{ api.SysYear }} GAMS Development Corp. <support@gams.com>
+'
+' Permission is hereby granted, free of charge, to any person obtaining a copy
+' of this software and associated documentation files (the "Software"), to deal
+' in the Software without restriction, including without limitation the rights
+' to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+' copies of the Software, and to permit persons to whom the Software is
+' furnished to do so, subject to the following conditions:
+'
+' The above copyright notice and this permission notice shall be included in all
+' copies or substantial portions of the Software.
+'
+' THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+' IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+' FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+' AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+' LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+' OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+' SOFTWARE.
+
+{% macro prettyWhiteSpace(len) -%}
+{%- for n in range(len) %} {% endfor -%}
+{%- endmacro -%}
+
+{%- macro VBAType(type) -%}
+{{ datadef.VBAType.elements[datadef.VBAType.elements['ta']==type]['text'].iloc[0] }}
+{%- endmacro -%}
+
+{%- macro VBACall(type) -%}
+{{ datadef.VBACall.elements[datadef.VBACall.elements['ta']==type]['text'].iloc[0] }}
+{%- endmacro -%}
+
+{%- macro VBNetType(type) -%}
+{{ datadef.VBNetType.elements[datadef.VBNetType.elements['ta']==type]['text'].iloc[0] }}
+{%- endmacro -%}
+
+{%- macro VBNetCall(type) -%}
+{{ datadef.VBNetCall.elements[datadef.VBNetCall.elements['ta']==type]['text'].iloc[0] }}
+{%- endmacro -%}
+
+{%- macro VBNetDefVal(type) -%}
+{{ datadef.VBNetDefVal.elements[datadef.VBNetDefVal.elements['ta']==type]['text'].iloc[0] }}
+{%- endmacro -%}
+
+{%- macro taind(type) -%}
+{{ datadef.taind.elements[datadef.taind.elements['type']==type]['value'].iloc[0] }}
+{%- endmacro -%}
+
+{%- macro farg(name) -%}
+  {%- if name in apidef.farg.elements['name'].tolist() -%}
+{{ apidef.farg.elements[apidef.farg.elements['name']==name]['value'].iloc[0] }}
+  {%- else                                             -%}
+0
+  {%- endif  -%}
+{%- endmacro -%}
+
+{%- block content -%}{%- endblock -%}

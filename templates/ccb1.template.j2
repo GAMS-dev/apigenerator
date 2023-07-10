@@ -1,0 +1,94 @@
+{%- extends "cbase.template.j2" -%}
+
+{%- block header %}
+ * GAMS - Loading mechanism for GAMS Expert-Level APIs
+{%- endblock -%}
+
+{%- block content -%}
+#if defined(_WIN32)
+typedef __int64 INT64;
+#else
+typedef signed long int INT64;
+#endif
+typedef union foo { void *p; INT64 i; } u64_t;
+#ifdef __arch64__
+typedef long int fstrlen_t;
+#else
+typedef int fstrlen_t;
+#endif
+{# -#}
+{%- set tpp = datadef.tpp.elements['tp'] -%}
+{%- for pre in apidef.pre.elements['prefix'].tolist() -%}
+  {%- for key,value in apidef.tPtrFunc.elements.iterrows() %}
+typedef {{ CType(value['type']) }} ({{ prefix(pre).upper() }}_CALLCONV *{{ value['name'] }}_t) (
+    {%- set counter = namespace(argpos = 0) -%}
+    {%- for fkey,fvalue in apidef.PtrF.elements[apidef.PtrF.elements['apos'].isin(tpp)].iterrows() if apidef.PtrF.elements.shape[0] > 0 -%}
+        {%- if fvalue['name'] == value['name'] -%} 
+           {%- if counter.argpos >0 -%}, {% endif -%}
+           {%- if fvalue['type'] != 'csi' -%}
+{{ CTMod(fvalue['type']) }}{{ CType(fvalue['type']) }} {{ CCall(fvalue['type']) }}{{ fvalue['arg'] }}{{ CArraySuf(fvalue['type']) }}
+           {%- else                       -%}
+{{ CTMod(fvalue['type']) }}{{ CType(fvalue['type']) }} *{{ fvalue['arg'] }}{{ CArraySuf(fvalue['type']) }}
+           {%- endif -%}
+           {%- set counter.argpos = counter.argpos + 1 -%}
+        {%- endif -%}
+    {%- endfor -%}
+);
+  {%- endfor -%}
+
+  {%- for key,value in apidef.tPtrFunc.elements.iterrows() -%}
+    {%- if (apidef.PtrF.elements.shape[0] > 0) and 
+           (apidef.PtrF.elements[apidef.PtrF.elements['name']==value['name']].shape[0] > 0) %}
+typedef {{ CType(value['type']) }} ({{ prefix(pre).upper() }}_CALLCONV *{{ value['name'] }}_F_t) (        
+        {%- set ptrf = apidef.PtrF.elements[apidef.PtrF.elements['name']==value['name']] -%}
+        {%- set counter = namespace(argpos = 0) -%}
+        {%- for fkey,fvalue in ptrf[ptrf['apos'].isin(tpp)].iterrows() -%}
+{#- *LW FVal? -#}
+           {%- set Fval = datadef.FVal.elements[datadef.FVal.elements['ta']==fvalue['type']] -%}
+           {%- if counter.argpos >0 -%}, {% endif -%}
+           {%- if fvalue['type'] != 'c' and Fval.shape[0] <= 0 -%}
+{{ CTMod(fvalue['type']) }}{{ CType(fvalue['type']) }} {{ CCall(fvalue['type']) }}{{ fvalue['arg'] }}{{ CArraySuf(fvalue['type']) }}
+           {%- elif fvalue['type'] == 'c' or Fval.shape[0] > 0 -%}
+{{ CTMod(fvalue['type']) }}{{ CType(fvalue['type']) }} *{{ fvalue['arg'] }}{{ CArraySuf(fvalue['type']) }}
+           {%- endif -%}
+           {%- set counter.argpos = counter.argpos + 1 -%}
+        {%- endfor -%}
+        {%- for fkey,fvalue in ptrf[ptrf['apos'].isin(tpp)].iterrows() -%}
+           {%- if fvalue['type'] in ['c','cpc','css','csi'] -%} 
+              {%- if counter.argpos > 0 -%}, {% endif -%}
+const fstrlen_t len_{{ fvalue['arg'] }}
+           {%- endif -%}
+           {%- set counter.argpos = counter.argpos + 1 -%}
+        {%- endfor -%}
+);
+    {%- endif %}
+  {%- endfor %}
+{# -#}
+   {% for key,value in apidef.f.elements[apidef.f.elements['pos'].isin(tpp)].iterrows() if value['type']=='funcptr' %}
+      {%- set fm = apidef.FuncMap.elements[apidef.FuncMap.elements['def']==value['name']] -%}
+      {%- for fkey,fvalue in fm[fm['fpos']==value['pos']].iterrows() if fm.shape[0] > 0 %}
+          {%- if (apidef.PtrF.elements.shape[0] > 0) and 
+                 (apidef.PtrF.elements[apidef.PtrF.elements['name']==fvalue['name']].shape[0] > 0) -%}
+            {%- set counter = namespace(argpos = 0) -%}
+            {%- for ffkey,ffvalue in apidef.tPtrFunc.elements[apidef.tPtrFunc.elements['name']==fvalue['name']].iterrows() %}
+{{ CType(ffvalue['type']) }} {{ prefix(pre).upper() }}_CALLCONV {{ value['name'] }}_{{ value['arg'] }}_FC({{ dobject(pre) }}Rec_t *{{ dobject(pre) }}
+               {%- set counter.argpos = counter.argpos + 1 -%}
+               {%- set ptrf = apidef.PtrF.elements[apidef.PtrF.elements['name']==ffvalue['name']] -%}
+               {%- if ptrf is defined and ptrf.shape[0] > 0 -%}
+                  {%- for fffkey,fffvalue in ptrf[ptrf['apos'].isin(tpp)].iterrows() -%}
+                     {%- if fffvalue['name']==fvalue['name'] -%}
+                       {%- if counter.argpos >0 -%}, {% endif -%}
+{{ CTMod(fffvalue['type']) }}{{ CType(fffvalue['type']) }} {{ CCall(fffvalue['type']) }}{{ fffvalue['arg'] }}{{ CArraySuf(fffvalue['type']) }}
+                       {%- set counter.argpos = counter.argpos + 1 -%}
+                     {%- endif -%}
+                  {%- endfor -%}
+               {%- endif -%}
+            {%- endfor -%}
+);
+          {%- endif -%}
+       {%- endfor -%}
+   {%- endfor -%}
+
+{%- endfor %}
+
+{% endblock -%}

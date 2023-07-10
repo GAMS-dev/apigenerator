@@ -1,0 +1,110 @@
+/* {% block header -%}{%- endblock %}
+ *
+ * GAMS - Loading mechanism for GAMS Expert-Level APIs
+ *
+ * Copyright (c) 2016-{{ api.SysYear }} GAMS Software GmbH <support@gams.com>
+ * Copyright (c) 2016-{{ api.SysYear }} GAMS Development Corp. <support@gams.com>
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
+{% macro prettyWhiteSpace(len) -%}
+{%- for n in range(len) %} {% endfor -%}
+{%- endmacro -%}
+
+{%- macro prefix(pre) -%}
+{{ apidef.pre.elements[apidef.pre.elements['prefix']==pre]['text'].iloc[0] }}
+{%- endmacro -%}
+
+{%- macro dobject(pre) -%}
+{{ apidef.DObject.elements[apidef.DObject.elements['prefix']==pre]['text'].iloc[0] }}
+{%- endmacro -%}
+
+{%- macro CTMod(type) -%}
+{{ datadef.CTMod.elements[datadef.CTMod.elements['ta']==type]['text'].iloc[0] }}
+{%- endmacro -%}
+
+{%- macro CType(type) -%}
+{{ datadef.CType.elements[datadef.CType.elements['ta']==type]['text'].iloc[0] }}
+{%- endmacro -%}
+
+{%- macro CCall(type) -%}
+{{ datadef.CCall.elements[datadef.CCall.elements['ta']==type]['text'].iloc[0] }}
+{%- endmacro -%}
+
+{%- macro CCall2(type) -%}
+{{ datadef.CCall2.elements[datadef.CCall2.elements['ta']==type]['text'].iloc[0] }}
+{%- endmacro -%}
+
+{%- macro CArraySuf(type) -%}
+{{ datadef.CArraySuf.elements[datadef.CArraySuf.elements['ta']==type]['text'].iloc[0] }}
+{%- endmacro -%}
+
+{%- macro CDefVal(type) -%}
+{{ datadef.CDefVal.elements[datadef.CDefVal.elements['ta']==type]['text'].iloc[0] }}
+{%- endmacro -%}
+
+{%- macro taind(type) -%}
+{{ datadef.taind.elements[datadef.taind.elements['type']==type]['value'].iloc[0] }}
+{%- endmacro -%}
+
+{%- macro farg(name) -%}
+  {%- if name in apidef.farg.elements['name'].tolist() -%}
+{{ apidef.farg.elements[apidef.farg.elements['name']==name]['value'].iloc[0] }}
+  {%- else                                             -%}
+0
+  {%- endif  -%}
+{%- endmacro -%}
+
+{%- macro functionPtrDescription(name, description, tpp) -%}
+    {%- set fnames = apidef.f.elements[apidef.f.elements['name']==name] -%}
+    {%- if description | length > 0 %}
+/*    {%- set descr = description.split('\n') -%}
+      {%- set counter = namespace(value=0) -%}
+      {%- for d in descr if d is defined and d | length > 0  -%}
+        {%- if counter.value == 0 %}* {{ d }}
+        {%- else %}
+ * {{ d }}
+        {%- endif %}
+ *
+        {%- set counter.value = counter.value + 1 -%}
+      {%- endfor %}
+ * @param p{{ apidef.Prefix }} {{ apidef.Prefix }} object handle
+      {%- set tpp = datadef.tpp.elements['tp'].tolist() -%}
+      {%- for fkey,fvalue in fnames[fnames['pos'].isin(tpp)].iterrows() %}
+ * @param {{ fvalue['arg']}} {{ fvalue['text'] }}
+      {%- endfor -%}
+      {%- set returnvalue = fnames[fnames['pos']=='0'] -%}
+      {%- if returnvalue.shape[0] > 0 %}
+        {%- set return = returnvalue['text'].iloc[0].split('\n') -%}
+      {%- set counter = namespace(value=0) -%}
+      {%- for r in return if r is defined and r | length > 0 -%}
+        {%- if counter.value == 0 and r %}
+ * @return {{ r }}
+        {%- else %}
+ *         {{ r }}
+        {%- endif %}
+        {%- set counter.value = counter.value + 1 -%}
+      {%- endfor -%}
+      {%- endif %}
+ */
+    {%- endif %}
+{%- endmacro -%}
+
+{%- block content -%}{%- endblock -%}

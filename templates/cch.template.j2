@@ -1,0 +1,330 @@
+{%- extends "cbase.template.j2" -%}
+
+{%- block header -%}
+{{ apidef.CCall }}.h
+ * Header file for C-style interface to the {{ apidef.Prefix.upper() }} library
+ * {{ api.generatedstr }}
+{%- endblock -%}
+
+{%- block content %}
+#if ! defined(_{{ apidef.Prefix.upper() }}CC_H_)
+#     define  _{{ apidef.Prefix.upper() }}CC_H_
+
+#define {{ apidef.Prefix.upper() }}APIVERSION {{ apidef.APIVersion  }}
+
+{#- writing enumerate constants -#}
+{%- for key,value in apidef.cname.elements.iterrows() %}
+
+enum {{ value['group'] }} {
+    {%- set counter = namespace(cpos = 1) -%}
+    {%- set gcon = apidef.gcon.elements[apidef.gcon.elements['group']==value['group']] -%}
+    {%- for gkey,gvalue in gcon.iterrows() -%}
+        {%- set len = value['maxlen'] - gvalue['len'] %}
+  {{ gvalue['constant'] }}{{ prettyWhiteSpace(len) }} = {{ gvalue['value']}}
+        {%- if counter.cpos < gcon.shape[0] -%} , {%- endif -%}
+        {%- set counter.cpos = counter.cpos + 1 -%}
+    {%- endfor -%} {#- apidef.gcon #}  };
+{%- endfor -%} {#- apidef.cname #}
+
+{#- writing string constants #}
+{%- for key,value in apidef.csname.elements.iterrows() -%}
+    {%- set counter = namespace(cstrpos = 1) -%}
+    {%- for gkey,gvalue in apidef.gstrcon.elements[apidef.gstrcon.elements['group']==value['group']].iterrows() -%}
+        {%- set len = value['maxlen'] - gvalue['len'] %}
+        {%- if counter.cstrpos == 1 %}
+
+#define {{ gvalue['constant'] }}{{ prettyWhiteSpace(len) }} "{{ gvalue['value'] }}"  /* {{ gvalue['group'] }} */
+        {%- else                     %}
+#define {{ gvalue['constant'] }}{{ prettyWhiteSpace(len) }} "{{ gvalue['value'] }}"
+        {%- endif -%}
+        {%- set counter.cstrpos = counter.cstrpos + 1 -%}
+    {%- endfor -%} {#- apidef.gstrcon #}
+{%- endfor -%} {#- apidef.csname #}
+
+{#- needed to get __int64 with GCC from RTools #}
+{%- set haveInt64 = false -%}
+{%- if apidef.haveInt64.elements.shape[0] > 0 -%}
+   {%- if apidef.haveInt64.elements[apidef.haveInt64.elements['prefix']==apidef.Prefix].shape[0] > 0 -%}
+      {%- set haveInt64 = true -%}
+   {%- endif -%}
+{%- endif %}
+
+{%- if haveInt64 %}
+#if defined(_WIN32) && defined(__GNUC__)
+# include <stdio.h>
+#endif
+{% endif %}
+
+{%- if apidef.gamsta.value %}
+
+#include "gclgms.h"
+{%- endif %}
+
+#if defined(_WIN32)
+# define {{ apidef.Prefix.upper() }}_CALLCONV __stdcall
+#else
+# define {{ apidef.Prefix.upper() }}_CALLCONV
+#endif
+
+{%- if haveInt64 %}
+#if defined(_WIN32)
+typedef __int64 INT64;
+#else
+typedef signed long int INT64;
+#endif
+{%- endif %}
+
+#if defined(__cplusplus)
+extern "C" {
+#endif
+
+struct {{ apidef.Prefix }}Rec;
+typedef struct {{ apidef.Prefix  }}Rec *{{ apidef.Prefix  }}Handle_t;
+
+typedef int (*{{ apidef.Prefix  }}ErrorCallback_t) (int ErrCount, const char *msg);
+
+/* headers for "wrapper" routines implemented in C */
+/** {{ apidef.Prefix }}GetReady: load library
+ *  @return false on failure to load library, true on success 
+ */
+int {{ apidef.Prefix }}GetReady  (char *msgBuf, int msgBufLen);
+
+/** {{ apidef.Prefix }}GetReadyD: load library from the speicified directory
+ * @return false on failure to load library, true on success 
+ */
+int {{ apidef.Prefix }}GetReadyD (const char *dirName, char *msgBuf, int msgBufLen);
+
+/** {{ apidef.Prefix }}GetReadyL: load library from the specified library name
+ *  @return false on failure to load library, true on success 
+ */
+int {{ apidef.Prefix }}GetReadyL (const char *libName, char *msgBuf, int msgBufLen);
+
+/** {{ apidef.Prefix }}Create: load library and create {{ apidef.Prefix }} object handle 
+ *  @return false on failure to load library, true on success 
+ */
+int {{ apidef.Prefix }}Create    ({{ apidef.Prefix }}Handle_t *p{{ apidef.Prefix }}, char *msgBuf, int msgBufLen);
+
+/** {{ apidef.Prefix }}CreateD: load library from the specified directory and create {{ apidef.Prefix }} object handle
+ * @return false on failure to load library, true on success 
+ */
+int {{ apidef.Prefix }}CreateD   ({{ apidef.Prefix }}Handle_t *p{{ apidef.Prefix }}, const char *dirName, char *msgBuf, int msgBufLen);
+{%- if apidef.UseCD.elements.shape[0] > 0 -%}
+   {%- if apidef.UseCD.elements[apidef.UseCD.elements['prefix']==apidef.Prefix].shape[0] > 0 %}
+
+/** {{ apidef.Prefix }}CreateDD: load library from the specified directory and create {{ apidef.Prefix }} object handle
+ * @return false on failure to load library, true on success 
+ */
+int {{ apidef.Prefix }}CreateDD  ({{ apidef.Prefix }}Handle_t *p{{ apidef.Prefix }}, const char *dirName, char *msgBuf, int msgBufLen);
+   {%- endif -%}
+{%- endif %}
+
+/** {{ apidef.Prefix }}Create: load library from the specified library name and create {{ apidef.Prefix }} object handle
+ * @return false on failure to load library, true on success 
+ */
+int {{ apidef.Prefix }}CreateL   ({{ apidef.Prefix }}Handle_t *p{{ apidef.Prefix }}, const char *libName, char *msgBuf, int msgBufLen);
+
+/** {{ apidef.Prefix }}Free: free {{ apidef.Prefix }} object handle 
+ * @return false on failure, true on success 
+ */
+int {{ apidef.Prefix }}Free      ({{ apidef.Prefix }}Handle_t *p{{ apidef.Prefix }});
+
+/** Check if library has been loaded
+ * @return false on failure, true on success 
+ */
+int {{ apidef.Prefix }}LibraryLoaded(void);
+
+/** Check if library has been unloaded
+ * @return false on failure, true on success 
+ */
+int {{ apidef.Prefix }}LibraryUnload(void);
+
+/** Check if API and library have the same version, Library needs to be initialized before calling this.
+ * @return true  (1) on success,
+ *         false (0) on failure.
+ */
+int  {{ apidef.Prefix }}CorrectLibraryVersion(char *msgBuf, int msgBufLen);
+
+int  {{ apidef.Prefix }}GetScreenIndicator   (void);
+void {{ apidef.Prefix }}SetScreenIndicator   (int scrind);
+int  {{ apidef.Prefix }}GetExceptionIndicator(void);
+void {{ apidef.Prefix }}SetExceptionIndicator(int excind);
+int  {{ apidef.Prefix }}GetExitIndicator     (void);
+void {{ apidef.Prefix }}SetExitIndicator     (int extind);
+{{ apidef.Prefix }}ErrorCallback_t {{ apidef.Prefix }}GetErrorCallback(void);
+void {{ apidef.Prefix }}SetErrorCallback({{ apidef.Prefix }}ErrorCallback_t func);
+int  {{ apidef.Prefix }}GetAPIErrorCount     (void);
+void {{ apidef.Prefix }}SetAPIErrorCount     (int ecnt);
+
+void {{ apidef.Prefix }}ErrorHandling(const char *msg);
+void {{ apidef.Prefix }}InitMutexes(void);
+void {{ apidef.Prefix }}FiniMutexes(void);
+
+{%- set tpp = datadef.tpp.elements['tp'].tolist() -%}
+{#-
+{%- set fosi = apidef.f.elements[apidef.f.elements['type'] == 'osi'] -%}
+{%- if fosi.shape[0] > 0 -%}
+#if defined(PYPREFIX{{ apidef.Prefix.upper() }})
+# define PYNAME(name) PY{{ apidef.Prefix.upper() }}##name
+#else
+# define PYNAME(name) name
+#endif
+{%- endif %}
+ #}
+
+#if defined({{ apidef.Prefix.upper() }}_MAIN)    /* we must define some things only once */
+# define {{ apidef.Prefix.upper() }}_FUNCPTR(NAME)  NAME##_t NAME = NULL
+{#-
+{%- set fosi = apidef.f.elements[apidef.f.elements['type'] == 'osi'] -%}
+{%- if fosi.shape[0] > 0 -%}
+# define PY{{ apidef.Prefix.upper() }}_FUNCPTR(NAME)  NAME##_t PYNAME(NAME) = NULL
+{%- endif %}
+ #}
+#else
+# define {{ apidef.Prefix.upper() }}_FUNCPTR(NAME)  extern NAME##_t NAME
+{#-
+{%- set fosi = apidef.f.elements[apidef.f.elements['type'] == 'osi'] -%}
+{%- if fosi.shape[0] > 0 -%}
+# define PY{{ apidef.Prefix.upper() }}_FUNCPTR(NAME)  extern NAME##_t PYNAME(NAME)
+{%- endif %}
+ #}
+#endif
+
+{%- if apidef.haveTypedefs.elements.shape[0] > 0 -%}
+   {%- if apidef.haveTypedefs.elements[apidef.haveTypedefs.elements['prefix']==apidef.Prefix].shape[0] > 0 %}
+
+/* function typedefs and pointer definitions */
+        {%- for key,value in apidef.tPtrFunc.elements.iterrows() %}
+typedef {{ CType(value['type']) }} ({{ apidef.Prefix.upper() }}_CALLCONV *{{ value['name'] }}_t) (
+            {%- if apidef.PtrF.elements.shape[0] > 0 -%}
+                {%- set counter = namespace(argpos = 1) -%}
+                {%- set ptrf = apidef.PtrF.elements[apidef.PtrF.elements['name']==value['name']] -%}
+                {%- set ptrftpp = ptrf[ptrf['apos'].isin(tpp)] -%}
+                {%- for fkey,fvalue in ptrftpp.iterrows() -%}
+                   {%- if fvalue['type'] != 'csi' -%} {{ CTMod(fvalue['type']) }}{{ CType(fvalue['type']) }} {{ CCall(fvalue['type']) }}{{ fvalue['arg'] }}{{ CArraySuf(fvalue['type']) }}
+                   {%- else                       -%} {{ CTMod(fvalue['type']) }}{{ CType(fvalue['type']) }} *{{ fvalue['arg'] }}
+                   {%- endif -%}
+                   {%- if counter.argpos < ptrftpp.shape[0] -%} , {% endif -%}
+                   {%- set counter.argpos = counter.argpos + 1 -%}
+                {%- endfor -%} {#- apidef.PtrF -#}
+            {%- endif -%}
+);
+        {%- endfor -%} {#- apidef.tPtrFunc -#}
+    {%- endif -%}
+{%- endif %}
+
+/* Prototypes for Dummy Functions */
+{% for key,value in apidef.tfunc.elements.iterrows() -%}
+    {%- if value['type'] == 'funcptr' and apidef.FuncMap.elements.shape[0] > 0 -%}
+       {%- set funcmap = apidef.FuncMap.elements[apidef.FuncMap.elements['fpos'] == '0'] -%}
+       {%- for fmkey,fmvalue in funcmap[funcmap['def']==value['name']].iterrows() -%}
+{{ CTMod(value['type']) }}{{ fmvalue['name'] }}_t
+       {%- endfor -%} {#- apidef.FuncMap -#}
+    {%- else                                                                      -%}
+{{ CType(value['type']) }} {{ CCall(value['type']) }}
+    {%- endif %} {{ apidef.Prefix.upper() }}_CALLCONV d_{{ value['name'] }} ({{ apidef.Prefix }}Handle_t p{{ apidef.Prefix }}
+    {%- set fnames = apidef.f.elements[apidef.f.elements['name']==value['name']] -%}
+    {%- for fkey,fvalue in fnames[fnames['pos'].isin(tpp)].iterrows() -%}
+, {{ CTMod(fvalue['type']) }}
+        {%- if fvalue['type'] != 'funcptr' -%}
+{{ CType(fvalue['type']) }}
+        {%- elif apidef.FuncMap.elements.shape[0] > 0   -%}
+            {%- set funcmap = apidef.FuncMap.elements[apidef.FuncMap.elements['fpos']==fvalue['pos']] -%}
+            {%- for fmkey,fmvalue in funcmap[funcmap['def']==value['name']].iterrows() -%}
+{{ fmvalue['name'] }}_t
+            {%- endfor -%} {#- apidef.FuncMap -#}
+        {%- endif %} {{ CCall(fvalue['type']) }}{{ fvalue['arg'] }}{{ CArraySuf(fvalue['type']) }}
+        {%- if fvalue['type'] == 'xss' -%}
+, {{ CTMod('int') }}{{ CType('int') }} {{ CCall('int') }}{{ fvalue['arg'] }}_i{{ CArraySuf('int') }}
+        {%- endif -%}
+    {%- endfor -%} {#- apidef.f -#}
+    {%- if value['type'] == 'oss' -%}, char *buf {%- endif -%}
+);
+{% endfor -%} {#- apidef.tFunc -#}
+
+{%- for key,value in apidef.pn.elements.iterrows() -%}
+    {%- if value['pactions'] == 'r' -%}
+        {%- if value['type'] == 'funcptr' and apidef.FuncMap.elements.shape[0] > 0-%}
+            {%- set funcmap = apidef.FuncMap.elements[apidef.FuncMap.elements['fpos'] == 'p'] -%}
+            {%- for fmkey,fmvalue in funcmap[funcmap['def']==value['name']].iterrows() -%}
+{{ fmvalue['name'] }}_t
+            {%- endfor -%} {#- apidef.FuncMap -#}
+        {%- else                           -%}
+{{ CType(value['type']) }} {{ CCall(value['type']) }}
+        {%- endif %} {{ apidef.Prefix.upper() }}_CALLCONV d_{{ value['name'] }} ({{ apidef.Prefix }}Handle_t p{{ apidef.Prefix }}
+        {%- if value['type'] == 'oss' -%}, char *buf {%- endif -%}
+);
+    {%- else                        -%}
+void {{ apidef.Prefix.upper() }}_CALLCONV d_{{ value['name'] }}Set ({{ apidef.Prefix }}Handle_t p{{ apidef.Prefix }},
+        {%- if value['type'] == 'funcptr' and apidef.FuncMap.elements.shape[0] > 0 -%}
+            {%- set funcmap = apidef.FuncMap.elements[apidef.FuncMap.elements['fpos'] == 'p'] -%}
+            {%- for fmkey,fmvalue in funcmap[funcmap['def']==value['name']].iterrows() -%}
+{{ fmvalue['name'] }}_t
+            {%- endfor -%} {#- apidef.FuncMap -#}
+        {%- else                                                                   %} const {{ CType(value['type']) }}
+        {%- endif %} {{ CCall(value['type']) }}x);
+    {%- endif %}
+{% endfor -%} {#- apidef.pn #}
+
+{%- for key,value in apidef.tfunc.elements.iterrows() %}
+
+typedef
+    {%- if value['type'] == 'funcptr' and apidef.FuncMap.elements.shape[0] > 0 -%}
+       {%- set funcmap = apidef.FuncMap.elements[apidef.FuncMap.elements['fpos'] == '0'] -%}
+       {%- for fmkey,fmvalue in funcmap[funcmap['def']==value['name']].iterrows() %} {{ CTMod(value['type']) }}{{ fmvalue['name'] }}_t
+       {%- endfor -%} {#- apidef.FuncMap -#}
+    {%- else                                                                   %} {{ CType(value['type']) }} {{ CCall(value['type']) }}
+    {%- endif %} ({{ apidef.Prefix.upper() }}_CALLCONV *{{ value['name'] }}_t) ({{ apidef.Prefix }}Handle_t p{{ apidef.Prefix }}
+    {%- set fnames = apidef.f.elements[apidef.f.elements['name']==value['name']] -%}
+    {%- for fkey,fvalue in fnames[fnames['pos'].isin(tpp)].iterrows() -%}
+, {{ CTMod(fvalue['type']) }}
+        {%- if fvalue['type'] != 'funcptr' -%}
+{{ CType(fvalue['type']) }}
+        {%- elif apidef.FuncMap.elements.shape[0] > 0 -%}
+            {%- set funcmap = apidef.FuncMap.elements[apidef.FuncMap.elements['fpos']==fvalue['pos']] -%}
+            {%- for fmkey,fmvalue in funcmap[funcmap['def']==value['name']].iterrows() -%}
+{{ fmvalue['name'] }}_t
+            {%- endfor -%} {#- apidef.FuncMap -#}
+        {%- endif %} {{ CCall(fvalue['type']) }}{{ fvalue['arg'] }}{{ CArraySuf(fvalue['type']) }}
+        {%- if fvalue['type'] == 'xss' -%}
+, {{ CTMod('int') }}{{ CType('int') }} {{ CCall('int') }}{{ fvalue['arg'] }}_i{{ CArraySuf('int') }}
+        {%- endif -%}
+    {% endfor -%} {#- apidef.f -#}
+    {%- if value['type'] == 'oss' -%}, char *buf {%- endif -%}
+); {#- -#}
+{{ functionPtrDescription(value['name'], value['text']) }}
+{#-   if(sum(f(en,tpp,ea,'osi'),1), put 'PY' ); #}
+{{ apidef.Prefix.upper() }}_FUNCPTR({{ value['name'] }});
+{%- endfor -%} {#- apidef.tFunc -#}
+
+{#- write properties -#}
+{%- for key,value in apidef.pn.elements.iterrows() %}
+
+typedef
+    {%- if value['pactions'] == 'r' -%}
+        {%- if value['type'] == 'funcptr' and apidef.FuncMap.elements.shape[0] > 0 -%}
+            {%- set funcmap = apidef.FuncMap.elements[apidef.FuncMap.elements['fpos'] == 'p'] -%}
+            {%- for fmkey,fmvalue in funcmap[funcmap['def']==value['name']].iterrows() %} {{ fmvalue['name'] }}_t
+            {%- endfor -%} {#- apidef.FuncMap -#}
+        {%- else                           %} {{ CType(value['type']) }} {{ CCall(value['type']) }}
+        {%- endif %} ({{ apidef.Prefix.upper() }}_CALLCONV *{{ value['name'] }}_t) ({{ apidef.Prefix }}Handle_t p{{ apidef.Prefix }}
+        {%- if value['type'] == 'oss' -%}, char *buf {%- endif -%}
+); {#- -#}
+{{ functionPtrDescription(value['name'], value['text']) }}
+{{ apidef.Prefix.upper() }}_FUNCPTR({{ value['name'] }});
+    {%- else                        %} void ({{ apidef.Prefix.upper() }}_CALLCONV *{{ value['name'] }}Set_t) ({{ apidef.Prefix }}Handle_t p{{ apidef.Prefix }},
+        {%- if value['type'] == 'funcptr' and apidef.FuncMap.elements.shape[0] > 0 -%}
+            {%- set funcmap = apidef.FuncMap.elements[apidef.FuncMap.elements['fpos'] == 'p'] -%}
+            {%- for fmkey,fmvalue in funcmap[funcmap['def']==value['name']].iterrows() %} {{ fmvalue['name'] }}_t
+            {%- endfor -%} {#- apidef.FuncMap -#}
+        {%- else                            %} const {{ CType(value['type']) }}
+        {%- endif %} {{ CCall(value['type']) }}x);
+{{ apidef.Prefix.upper() }}_FUNCPTR({{ value['name'] }}Set);
+    {%- endif %}
+{%- endfor -%} {#- apidef.pn #}
+
+#if defined(__cplusplus)
+}
+#endif
+#endif /* #if ! defined(_{{ apidef.Prefix.upper() }}CC_H_) */
+
+{% endblock -%}

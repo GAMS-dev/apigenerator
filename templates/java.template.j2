@@ -1,0 +1,298 @@
+{%- extends "cbase.template.j2" -%}
+
+{%- block header -%}
+Java code {{ api.generatedstr }}
+{%- endblock -%}
+
+{%- macro JType(type) -%}
+{{ datadef.JType.elements[datadef.JType.elements['ta']==type]['text'].iloc[0] }}
+{%- endmacro -%}
+
+{%- macro JTMod(type) -%}
+{{ datadef.JTMod.elements[datadef.JTMod.elements['ta']==type]['text'].iloc[0] }}
+{%- endmacro -%}
+
+{%- macro JCall(type) -%}
+{{ datadef.JCall.elements[datadef.JCall.elements['ta']==type]['text'].iloc[0] }}
+{%- endmacro -%}
+
+{%- macro nameWithoutPrefix(prefix, name) -%}
+{{ prettyWhiteSpace(prefix|length) }}
+  {%- if name.startswith(prefix) -%} {{ name[prefix|length : name|length] }}
+  {%- else                       -%} {{ name }}
+  {%- endif  -%}
+{%- endmacro -%}
+
+{%- macro functionDescription(name, description) -%}
+  {%- if description|length > 0  %}
+   /* {%- set desc = description.split('\n') -%}
+      {%- set counter = namespace(value=0) -%}
+      {%- for d in desc if d is defined and d | length > 0  -%}
+         {%- if counter.value == 0 %}* {{ d }}
+         {%- else %}
+ * {{ d }}
+         {%- endif %}
+      {%- set counter.value = counter.value + 1 -%}
+      {%- endfor %}
+  {%- for fkey,fvalue in apidef.f.elements[apidef.f.elements['name']==name].iterrows()
+        if apidef.f.elements.shape[0] > 0 %}
+        {%- if fvalue['pos']=='0' -%} 
+            {%- if fvalue['text'] | length > 0 %}
+    * @return {{ fvalue['text'] }}
+            {%- endif %}
+        {%- else                                     %}
+    * @param {{ fvalue['arg'] }} {{ fvalue['text'] }}
+        {%- endif -%}
+  {%- endfor -%} {#- f #}
+    */
+  {%- endif -%}
+{%- endmacro -%}
+
+{%- macro propertyDescription(name, description) -%}
+  {%- if description|length > 0  %}
+   /* {%- set desc = description.split('\n') -%}
+      {%- set counter = namespace(value=0) -%}
+      {%- for d in desc if d is defined and d | length > 0  -%}
+         {%- if counter.value == 0 %}* {{ d }}
+         {%- else %}
+ * {{ d }}
+         {%- endif %}
+      {%- set counter.value = counter.value + 1 -%}
+      {%- endfor %}
+    */
+  {%- endif -%}
+{%- endmacro -%}
+
+{%- block content -%}
+package com.gams.api;
+
+import java.io.File;
+
+public class {{ apidef.JavaCall }} {
+
+{#- write constants -#}
+{%- for key,value in apidef.cname.elements.iterrows() %}
+    {%- set counter = namespace(pos = 1) -%}
+    {%- for gkey,gvalue in apidef.gcon.elements[apidef.gcon.elements['group']==value['group']].iterrows()
+        if apidef.gcon.elements.shape[0] > 0 -%}
+        {%- set len = value['maxlen'] - gvalue['len'] %}
+   public static final int {{ gvalue['constant']}}{{ prettyWhiteSpace(len) }} = {{ gvalue['value']}};
+        {%- if counter.pos == 1 %} /* {{ value['group'] }} */  {%- endif -%}
+        {%- set counter.pos = counter.pos + 1 -%}
+    {%- endfor -%} {#- apidef.gcon #}
+{% endfor -%} {#- apidef.cname #}
+
+{# write string constants -#}
+{%- for key,value in apidef.csname.elements.iterrows() -%}
+    {%- set counter = namespace(pos = 1) -%}
+    {%- for gkey,gvalue in apidef.gstrcon.elements[apidef.gstrcon.elements['group']==value['group']].iterrows() 
+        if apidef.gstrcon.elements.shape[0] > 0 -%}
+        {%- set len = value['maxlen'] - gvalue['len'] %}
+   public static final String {{ gvalue['constant']}}{{ prettyWhiteSpace(len) }} = "{{ gvalue['value']}}";
+        {%- if counter.pos == 1 %} /* {{ value['group'] }} */  {%- endif -%}
+        {%- set counter.pos = counter.pos + 1 -%}
+    {%- endfor -%} {#- apidef.gstrcon -#}
+{%- endfor -%} {#- apidef.csname #}
+   private long {{ apidef.Prefix }}Ptr = 0;
+   public native static int    GetReady (String[] msg);
+   public native static int    GetReadyD(String dirName, String[] msg);
+   public native static int    GetReadyL(String libName, String[] msg);
+   public native int    Create   (String[] msg);
+   public native int    CreateD  (String dirName, String[] msg);
+{%- if apidef.UseCD.elements.shape[0] > 0 and  apidef.Prefix in apidef.UseCD.elements['prefix'].tolist() %}
+   public native int    CreateDD (String dirName, String[] msg);
+{%- endif %}
+   public native int    CreateL  (String libName, String[] msg);
+   public native int    Free     ();
+
+{%- set tpp = datadef.tpp.elements['tp'] -%}
+{%- for key,value in apidef.tfunc.elements.iterrows() if value['type'] != 'oss' -%}
+   {{ functionDescription(value['name'], value['text']) }}
+   {%- if apidef.internalCS.elements.shape[0] > 0 and
+          value['name'] in apidef.internalCS.elements['name'].tolist() %} 
+   public static native 
+   {%- else %}
+   public native 
+   {%- endif -%}
+   {%- if value['type'] == 'funcptr' %} String
+   {%- endif -%}
+   {%- if value['type'] != 'funcptr' %} {{ JType(value['type']) }}
+   {%- endif  %} {{ nameWithoutPrefix(apidef.Prefix, value['name']) }}(
+   {%- set f = apidef.f.elements[apidef.f.elements['name']==value['name']] -%}
+   {%- set counter = namespace(argpos=0)                                   -%}
+   {%- for fkey,fvalue in f[f['pos'].isin(tpp)].iterrows() if f.shape[0] > 0 -%}
+       {%- if counter.argpos > 0 -%} , {% endif -%}
+{#- JTMod(fvalue['type']) - #} 
+       {%- if fvalue['type'] != 'funcptr' -%} {{ JType(fvalue['type']) }}
+       {%- endif -%}
+       {%- if fvalue['type'] == 'funcptr' -%} String
+       {%- endif %} {{ JCall(fvalue['type']) }}{{ fvalue['arg'] }}
+       {%- set counter.argpos = counter.argpos + 1 -%}
+   {% endfor -%} {#- f -#}
+);
+{%- endfor -%} {#- tfunc #}
+
+{#- write properties #}
+{% for pkey,pvalue in apidef.pn.elements.iterrows() -%}
+   {%- if pvalue['pactions']=='r' -%}
+       {%- if pvalue['type'] != 'oss' -%}
+   {{ propertyDescription(pvalue['name'], pvalue['text']) }}
+   public native 
+          {%- if pvalue['type'] == 'funcptr' %} String
+          {%- else                           %} {{ JType(pvalue['type']) }}
+          {%- endif %} {{ nameWithoutPrefix(apidef.Prefix, pvalue['name']) }}();
+       {%- endif -%}
+    {%- else                       -%}
+   {{ propertyDescription(pvalue['name'], pvalue['text']) }}
+   public native void {{ nameWithoutPrefix(apidef.Prefix, pvalue['name']) }}Set(
+       {%- if pvalue['type'] == 'funcptr' -%} String
+       {%- else                           -%} {{ JType(pvalue['type']) }}
+       {%- endif %} x);
+    {%- endif -%}
+{%- endfor -%} {#- pn #}
+
+{%- for key,value in apidef.tfunc.elements.iterrows() if value['type'] == 'oss' %}
+   private native {{ JType('oss') }} {{ nameWithoutPrefix(apidef.Prefix,value['name']) }}(
+   {%- set f = apidef.f.elements[apidef.f.elements['name']==value['name']] -%}
+   {%- set counter = namespace(argpos=0)                                   -%}
+   {%- for fkey,fvalue in f[f['pos'].isin(tpp)].iterrows() if f.shape[0] > 0 -%}
+       {%- if counter.argpos > 0 -%} , {% endif -%}
+{#- JTMod(fvalue['type']) - #} 
+       {%- if fvalue['type'] != 'funcptr' -%} {{ JType(fvalue['type']) }}
+       {%- else                           -%} String
+       {%- endif %} {{ JCall(fvalue['type']) }}{{ fvalue['arg'] }}
+       {%- set counter.argpos = counter.argpos + 1 -%}
+   {% endfor -%} {#- f -#}
+   {%- if counter.argpos > 0 -%} , {% endif -%} String []sst_result); {#- -#}
+   {{ functionDescription(value['name'], value['text']) }}
+   public {{ JType('oss') }} {{ nameWithoutPrefix(apidef.Prefix,value['name']) }}(
+   {%- set counter.argpos = 0 -%}
+   {%- for fkey,fvalue in f[f['pos'].isin(tpp)].iterrows() if f.shape[0] > 0 -%}
+       {%- if counter.argpos > 0 -%} , {% endif -%}
+{#- JTMod(fvalue['type']) - #} 
+       {%- if fvalue['type'] != 'funcptr' -%} {{ JType(fvalue['type']) }}
+       {%- else                           -%} String
+       {%- endif %} {{ JCall(fvalue['type']) }}{{ fvalue['arg'] }}
+       {%- set counter.argpos = counter.argpos + 1 -%}
+   {% endfor -%} {#- f -#}
+) {
+       String[] sst_result = new String[1];
+       return {{ nameWithoutPrefix(apidef.Prefix,value['name']) }}(
+   {%- set counter.argpos = 0 -%}
+   {%- for fkey,fvalue in f[f['pos'].isin(tpp)].iterrows() if f.shape[0] > 0 -%}
+       {%- if counter.argpos > 0 -%} , {% endif -%}
+{{ fvalue['arg'] }}
+       {%- set counter.argpos = counter.argpos + 1 -%}
+   {% endfor -%} {#- f -#}
+   {%- if counter.argpos > 0 -%} , {% endif -%} sst_result);
+   }
+{%- endfor -%} {#- tfunc #}
+
+{%- for pkey,pvalue in apidef.pn.elements.iterrows() 
+   if pvalue['pactions'] == 'r' and pvalue['type'] == 'oss' %}
+   private native {{ JType('oss') }} {{ nameWithoutPrefix(apidef.Prefix, pvalue['name']) }}(String []sst_result); {#--#}
+   {{ propertyDescription(pvalue['name'], pvalue['text']) }}
+   public  {{ JType('oss') }} {{ nameWithoutPrefix(apidef.Prefix, pvalue['name']) }}() {
+       String[] sst_result = new String[1];
+       return {{ nameWithoutPrefix(apidef.Prefix, pvalue['name']) }}(sst_result);
+   }
+{%- endfor -%} {#- pn #}
+
+   public        long    Get{{ apidef.Prefix }}Ptr(){ return {{ apidef.Prefix }}Ptr;}
+   public {{ apidef.JavaCall }} () { }
+   public {{ apidef.JavaCall }} (long {{ apidef.Prefix }}Ptr) {
+      this.{{ apidef.Prefix }}Ptr = {{ apidef.Prefix }}Ptr;
+   }
+   static {
+      String stem = "{{ apidef.JavaNI }}";
+      String bitsuffix = "64";
+ 
+      String os = System.getProperty("os.name").toLowerCase();
+      String prefix = "";
+      String suffix = "";
+ 
+      if (os.indexOf("win") >=0) {
+         suffix = ".dll";
+      } else if (os.indexOf("mac") >= 0) {
+          prefix = "lib";
+          suffix = ".dylib";
+      } else {
+          prefix = "lib";
+          suffix = ".so";
+      }
+ 
+      boolean loaded = false;
+      try  {
+           String libPath = System.getProperty("java.library.path");
+           if (libPath != null) {
+               for (String str : libPath.split(System.getProperty("path.separator")) ) {
+                   File curPath = new File(str);
+                   String fileName = curPath.getCanonicalPath() + File.separator + prefix + stem + bitsuffix + suffix;
+                   if ( new File(fileName).exists() ) {
+                       System.load(fileName);
+                       loaded = true;
+                       break;
+                   }
+                }
+            }
+       } catch (Exception e) {
+           loaded = false;
+       } catch (UnsatisfiedLinkError e1) {
+           loaded = false;
+       } finally {
+            if (!loaded) {
+                try  {
+                   System.loadLibrary(stem + bitsuffix);
+                } catch (UnsatisfiedLinkError e1) {
+                    String libraryFullPath = null;
+                    String classPath = null;
+                    try {
+                       String packageName = (Class.forName({{ apidef.JavaCall }}.class.getName()).getPackage().getName());
+                       StringBuilder sb = new StringBuilder();
+                       String[] bs = packageName.split("\\.");
+                       for (String s : bs) {
+                          sb.append(s);
+                          sb.append("/");
+                        }
+                       sb.append({{ apidef.JavaCall }}.class.getSimpleName());
+                       sb.append(".class");
+                       ClassLoader cl = {{ apidef.JavaCall }}.class.getClassLoader();
+ 
+                       classPath = cl.getResource(sb.toString()).getPath();
+                       sb.insert(0, "/");
+                       classPath = classPath.substring(0, classPath.lastIndexOf(sb.toString()));
+                       if (classPath.endsWith("!")) {
+                          int index = classPath.lastIndexOf("/");
+                          if (index >= 0)
+                              classPath = classPath.substring(0, index);
+                        }
+                       if (classPath.indexOf("/") >= 0) {
+                           classPath = classPath.substring(classPath.indexOf(":")+1,classPath.length());
+                       }
+ 
+                       libraryFullPath = classPath + "/" + prefix + stem + bitsuffix + suffix ;
+                       java.io.File apath = new java.io.File(libraryFullPath);
+                       libraryFullPath = java.net.URLDecoder.decode(apath.getAbsolutePath(), "UTF-8");
+                    } catch (Exception e2) {
+                          e2.printStackTrace();
+                          e1.printStackTrace();
+                          throw (e1);
+                    } finally {
+                         if (libraryFullPath == null)  {
+                            e1.printStackTrace();
+                            throw (e1);
+                         }
+                    }
+ 
+                    try {
+                        System.load(libraryFullPath);
+                    } catch (UnsatisfiedLinkError e3) {
+                        e3.printStackTrace();
+                        throw (e3);
+                    }
+               }
+           }
+        }
+     }
+}
+{% endblock -%}

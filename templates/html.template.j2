@@ -1,0 +1,437 @@
+{%- macro title(prefix) -%}
+{{ apidef.Title.elements[apidef.Title.elements['prefix']==prefix]['text'].iloc[0] }}
+{%- endmacro -%}
+
+{%- macro DPureCall(type) -%}
+{{ datadef.DelphiPureCall.elements[datadef.DelphiPureCall.elements['ta']==type]['text'].iloc[0] }}
+{%- endmacro -%}
+
+{%- macro DType(type) -%}
+{{ datadef.DelphiType.elements[datadef.DelphiType.elements['ta']==type]['text'].iloc[0] }}
+{%- endmacro -%}
+
+{%- macro FunctionType(type) -%}
+  {%- if type == 'void'  -%} void
+  {%- else               -%} {{ datadef.DelphiType.elements[datadef.DelphiType.elements['ta']==type]['text'].iloc[0] }}
+  {%- endif  -%}
+{%- endmacro -%}
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta http-equiv="Content-Type" content="text/xhtml;charset=UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>
+{%- if apidef.Title.elements.shape[0] > 0 and 
+       apidef.Prefix in apidef.Title.elements['prefix'].tolist() -%}
+  {{ apidef.Prefix.upper() }} API ({{ apidef.Title.elements[apidef.Title.elements['prefix']==apidef.Prefix]['text'].iloc[0] }})
+{%- else                                                         -%}
+  {{ apidef.Prefix.upper() }} API
+{%- endif -%}
+</title>
+
+<link href="../../style/stylesheet.css" rel="stylesheet" type="text/css"  id="gamsstylesheet" />
+<link href="../../style/navtree.css" rel="stylesheet" type="text/css" />
+<link href="../../style/icono.min.css" rel="stylesheet"  type="text/css" />
+<link href="../../style/stylesheet-new.css" rel="stylesheet" type="text/css" id="newgamsstylesheet" />
+<script type="text/javascript" src="../../style/toc-highlight.js"></script>
+<script type="text/javascript" src="../../style/doxygen-awesome-darkmode-toggle.js"></script>
+<script type="text/javascript">
+    DoxygenAwesomeDarkModeToggle.init()
+</script>
+<script type="text/javascript" src="../../style/doxygen-awesome-fragment-copy-button.js"></script>
+<script type="text/javascript">
+    DoxygenAwesomeFragmentCopyButton.init()
+</script>
+<!--#include virtual="/wheader.html" -->
+<style>
+  table.functionsdef, table.enumsdef, table.paramsdef 
+     { border-spacing: 0; padding: 0; border-collapse: collapse;border: none; 
+     }
+  div.functionitem {
+     border-top: 1px solid #a8b8d9; 
+     webkit-border-bottom-left-radius: 4px;
+     -webkit-border-bottom-right-radius: 4px;
+     -webkit-box-shadow: 5px 5px 5px rgba(0,0,0,.15);
+     border-bottom: 1px solid #a8b8d9;
+     border-left: 1px solid #a8b8d9;
+     border-right: 1px solid #a8b8d9;
+     background-color: #fff;
+     width: 98%; padding: 5px; 
+     margin-right: 5px; }
+  h3.functionitem 
+   { border-top: 1px solid #a8b8d9;
+     border-left: 1px solid #a8b8d9;
+     border-right: 1px solid #a8b8d9;
+     padding: 6px 0;
+     color: #253555;
+     font-weight: 700;
+     background-color: #dfe5f1;
+     margin: 0;
+     margin-top: 10px;
+     padding: 5px;
+     width: 98%;
+   }
+  td.functiontype { background-color: #f9fafc; padding: 1px 15px 0 10px;}
+  td.functionname { background-color: #f9fafc; margin: 4px;padding: 1px 0 0 2px; }
+  td.functiondescr, td.paramdescr 
+   { color: #555; background-color: #f9fafc; margin: 4px; padding: 1px 0 5px 2px; }
+  td.enumtype { background-color: #f9fafc; font-weight: bold; padding: 1px 15px 0 10px;}
+  td.enumelement { background-color: #f9fafc; margin: 4px;padding: 1px 5px 0 2px; }
+  td.enumvalue { color: #555; background-color: #f9fafc; margin: 4px; padding: 1px 0 0 10px; }
+    </style>
+</head>
+<body class="doc-page">
+<header class="topnav" id="menu-area">
+    <!--#include virtual="/wbody.html" -->
+    <div class="versionwrapper">
+      <!--#include virtual="/docversions.html"-->
+    </div>
+    <a href="javascript:void(0);" id="hamburger-nav" title="Open Menu" class="hamburger" onclick="toggleResponsive()">
+       <div class="bar1"></div>
+       <div class="bar2"></div>
+       <div class="bar3"></div>
+    </a>
+    <a class="search" href="javascript:void(0);">
+        <div class="searchwrapper">
+           <div class="nav-icon"><i class="icono-search"></i></div>
+           <input id="searchbar" type="text" placeholder="Search..." onkeypress="return handleSearchKeyPress(event);">
+        </div>
+    </a>
+
+    <div class="nav">
+        <div id="docs-menu-ctrl" title="Expand Submenu" class="submenu-icon collapsed"><i class="icono-caretDown"></i></div>
+        <a id="docs" href="../../index.html" class="menu">Documentation</a>
+ 
+        <div class="subnav">
+            <a href="../../Preface.html" class="docsmenu collapsed">Preface</a>
+            <a href="../../RN_MAIN.html" class="docsmenu collapsed">Release Notes</a>
+            <a href="../../UG_MAIN.html#UG_INSTALL" class="docsmenu collapsed">Installation and Licensing</a>
+            <a href="../../UG_MAIN.html#UG_Tutorial_Examples" class="docsmenu collapsed">Tutorials and Examples</a>
+            <a href="../../UG_MAIN.html#UG_Language_Environment" class="docsmenu collapsed">GAMS Language and Environment</a>
+            <a href="../../S_MAIN.html" class="docsmenu collapsed">Solver Manuals</a>
+            <a href="../../T_MAIN.html" class="docsmenu collapsed">Tools Manuals</a>
+            <a href="../../API_MAIN.html" class="docsmenu collapsed">Application Programming Interfaces</a>
+            <a href="../../UG_Glossary.html" class="docsmenu collapsed">Glossary</a>
+            <a href="../../citelist.html" class="docsmenu collapsed">Bibliograhpy</a>
+        </div>
+        <div id="modlibs-menu-ctrl" title="Expand Submenu" class="submenu-icon collapsed"><i class="icono-caretDown"></i></div>
+        <a id="modlibs" href="../../modlibs.html" class="menu">Model Libraries</a>
+        <div class="subnav">
+            <a href="../../../gamslib_ml/libhtml/index.html" class="modlibsmenu collapsed">GAMS Model Library</a>
+            <a href="../../../testlib_ml/libhtml/index.html" class="modlibsmenu collapsed">GAMS Test Library</a>
+            <a href="../../../datalib_ml/libhtml/index.html" class="modlibsmenu collapsed">GAMS Data Library</a>
+            <a href="../../../emplib_ml/libhtml/index.html" class="modlibsmenu collapsed">GAMS EMP Library</a>
+            <a href="../../../apilib_ml/libhtml/index.html" class="modlibsmenu collapsed">GAMS API Library</a>
+            <a href="../../../finlib_ml/libhtml/index.html" class="modlibsmenu collapsed">FIN Library</a>
+            <a href="../../../noalib_ml/libhtml/index.html" class="modlibsmenu collapsed">NOA Library</a>
+            <a href="../../../psoptlib_ml/libhtml/index.html" class="modlibsmenu collapsed">PSOPT Library</a>
+        </div>
+        <a id="keyword" href="../../keyword.html" class="menu">Index</a>
+        <a id="help" href="../../help.html" class="menu">Help</a>
+    </div>
+</header>
+
+<div id="content-area" class="content-page">
+
+  <div  id="context-sidebar" class="ontop nav-menu">
+    <div id="ctrl-expand-collapse">
+        <div id="ctrl-icon" title="Show Table of Contents"><i class="icono-caretLeftCircle"></i></div>
+        <span id="ctrl-toc-item" class="tocitem">Hide Table of Contents</span>
+    </div>
+    <div id="nav-area" class="collapsible-menu">
+        <div id="nav-tree">
+           <div id="nav-tree-contents">
+             <div id="nav-sync" class="sync"></div>
+        </div>
+       </div>
+    </div>
+  </div>
+
+  <div id="split-bar" class="expanded"></div>
+
+  <div class="content" id="doc-content">
+
+<!--BREADCRUMB-->
+
+<div class="header">
+   <div class="headertitle">
+      <div class="title">{{ title(apidef.Prefix) }} ({{ apidef.Prefix.upper() }}) Documentation</div>
+   </div>
+</div>
+
+{%- macro anchorid(name) %}
+<a id="{{ name }}"></a>
+{% endmacro -%}
+
+<div class="contents">
+<div class="textblock">
+<p>Generated for GAMS {{ api.SysRelease }}.{{ api.SysSubRel  }}.{{ api.SysSubRelGold }}</p>
+
+{{ anchorid('functionDefinition') }}
+<table class="functionsdef">
+   <tr class="heading"><td colspan="2"><h2 class="groupheader">Functions, Procedures, and Properties</h2></td></tr>
+   <tr><td  colspan="2">&#160;</td>
+   </tr>
+{%- set groupname = namespace(val='dummy') -%}
+{%- for key,value in apidef.pn.elements.iterrows() -%}
+    {%- if value['group'] != 'Not grouped' and value['group'] != groupname.val %} 
+   <tr><td class="groupname" colspan="2"><h3>{{ value['group'] }}</h3></td> </tr>
+       {%- set groupname.val = value['group'] -%}
+    {%- endif -%}
+    {%- set pn = apidef.pn.elements[apidef.pn.elements['name']==value['name']] -%}
+    {%- for pkey,pvalue in pn[pn['pactions']==value['pactions']].iterrows() -%}
+  <tr><td class="functiontype" align="right" valign="top"> {{ FunctionType(pvalue['type']) }}</td>
+      <td class="functionname" valign="bottom">
+         <a href="#{{ pvalue['name'] }}{%- if pvalue['pactions']=='w' -%}Set{%- endif -%}" style="font-weight: bold;">
+         {{ pvalue['name'] }}{%- if pvalue['pactions']=='w' -%}Set{%- endif -%}</a> 
+      </td>
+  </tr>
+  <tr><td class="functiontype">&#160;</td><td class="functiondescr">{{ pvalue['text'] }}</td></tr>
+    {%- endfor -%}
+   <tr class="separator"><td class="memSeparator" colspan="2">&#160;</td></tr>
+{%- endfor -%}
+{%- set groupname.val = 'dummy' -%}
+{%- for key,value in apidef.tfuncG.elements.iterrows() -%}
+    {%- if value['group'] != 'Not grouped' and value['group'] != groupname.val %}
+   <tr><td class="groupname" colspan="2"><h3>{{value['group']}}</h3></td> </tr>
+       {%- set groupname.val = value['group'] -%}
+    {%- endif -%}
+    {%- for fkey,fvalue in apidef.tfunc.elements[apidef.tfunc.elements['name']==value['name']].iterrows() -%}
+  <tr><td class="functiontype" align="right" valign="top">{{ FunctionType(fvalue['type']) }}</td>
+      <td class="functionname" valign="bottom">
+         <a href="#{{ fvalue['name'] }}" style="font-weight: bold;">{{ fvalue['name'] }}</a> 
+      </td>
+  </tr>
+  <tr><td class="functiontype">&#160;</td><td class="functiondescr">{{ fvalue['text'] }}</td></tr>
+    {%- endfor -%}
+   <tr class="separator"><td class="memSeparator" colspan="2">&#160;</td></tr>
+{%- endfor -%}
+</table>
+
+{%- if apidef.cname.elements.shape[0] > 0 or apidef.csname.elements.shape[0] > 0 %}
+{{ anchorid('enumDefinition') }}
+<table class="enumsdef">
+    <tr class="heading"><td colspan="3"><h2 class="groupheader">Enumerated Constants</h2></td></tr>
+    <tr><td  colspan="2">&#160;</td>
+    </tr>
+{#- write constants -#}
+{%- for key,value in apidef.cname.elements.iterrows() %}
+    {%- set counter = namespace(pos = 1) -%}
+    {%- for gkey,gvalue in apidef.gcon.elements[apidef.gcon.elements['group']==value['group']].iterrows()
+        if apidef.gcon.elements.shape[0] > 0 -%}
+     <tr><td class="enumtype" align="right" valign="top">
+        {%- if counter.pos == 1 -%} {{ value['group'] }}
+        {%- else                -%} &#160;
+        {%- endif -%}
+         </td>
+         <td class="enumelement" valign="bottom">{{ gvalue['constant'] }}</td>
+         <td class="enumvalue" valign="bottom"> &#160;=&#160;{{ gvalue['value'] }} </td>
+    </tr>
+        {%- set counter.pos = counter.pos + 1 -%}
+    {%- endfor -%} {#- apidef.gcon #}
+    <tr class="separator"><td class="memSeparator" colspan="3">&#160;</td></tr>
+{% endfor -%} {#- apidef.cname #}
+{%- for key,value in apidef.csname.elements.iterrows() %}
+    {%- set counter = namespace(pos = 1) -%}
+    {%- for gkey,gvalue in apidef.gstrcon.elements[apidef.gstrcon.elements['group']==value['group']].iterrows() 
+        if apidef.gstrcon.elements.shape[0] > 0 -%}
+     <tr><td class="enumtype" align="right" valign="top">
+        {%- if counter.pos == 1 -%} {{ value['group'] }}
+        {%- else                -%} &#160;
+        {%- endif -%}
+         </td>
+         <td class="enumelement" valign="bottom">{{ gvalue['constant'] }}</td>
+         <td class="enumvalue" valign="bottom"> &#160;=&#160;{{ gvalue['value'] }} </td>
+    </tr>
+        {%- set counter.pos = counter.pos + 1 -%}
+    {%- endfor -%} {#- apidef.gstrcon -#}
+{% endfor -%} {#- apidef.csname #}
+</table>
+{%- endif %}
+
+{{ anchorid('functionDefinitions') }}
+<h2 class="groupheader">Definitions</h2>
+
+{%- set tfnamelist = apidef.tfunc.elements['name'].tolist() -%}
+{%- set pnnamelist = [] -%}
+{%- if apidef.pn.elements.shape[0] > 0  -%}
+   {%- set pnnamelist = apidef.pn.elements['name'].tolist()    -%}
+{%- endif -%}
+{%- macro tfattribute(name, attribute) %}
+    {%- if attribute == 'description'  -%}
+  <p class="functiondescr"> {{ apidef.tfunc.elements[apidef.tfunc.elements['name']==name]['text'].iloc[0] }} </p>
+    {%- elif attribute == 'details' and apidef.tfunc.elements[apidef.tfunc.elements['name']==name]['details'].iloc[0] -%}
+  <p class="functiondetails"> {{ apidef.tfunc.elements[apidef.tfunc.elements['name']==name]['details'].iloc[0] }} </p>
+    {%- elif attribute == 'type'       -%}
+  <dl class="section type"><dt>Type</dt><dd>
+       {%- set data = apidef.f.elements[apidef.f.elements['name']==name] -%} 
+       {%- set fdef = data[data['pos']=='0']                             -%}
+       {%- if fdef['type'].iloc[0] == 'void'  -%} Procedure
+       {%- else                               -%} Function returns <em>{{ DType(fdef['type'].iloc[0]) }}</em>
+       {%- endif -%}
+  </dd></dl>
+    {%- elif attribute == 'return'     -%} 
+       {%- set data = apidef.f.elements[apidef.f.elements['name']==name] -%} 
+       {%- set fdef = data[data['pos']=='0']                             -%}
+       {%- if fdef.shape[0] > 0  and fdef['text'].iloc[0] | length > 0 and 
+              fdef['type'].iloc[0] != 'void' -%}
+  <dl class="section return"><dt>Returns</dt><dd> {{ fdef['text'].iloc[0] }} </dd></dl>
+       {%- endif -%}
+    {%- elif attribute == 'parameter'  -%} 
+       {%- set data = apidef.f.elements[apidef.f.elements['name']==name] -%} 
+       {%- set fdef = data[data['pos']!='0']                             -%}
+       {%- if fdef is defined and fdef | length > 0 -%}
+  <dl class="params"><dt>Parameters</dt>
+    <dd>
+    <table class="paramsdef">
+          {%- for key,value in fdef.iterrows() -%}
+            {%- if value['type'] == 'funcptr'  -%}
+              {%-if apidef.FuncMap.elements.shape[0] > 0 -%}
+                {%- set funcmap   = apidef.FuncMap.elements[apidef.FuncMap.elements['fpos'] == value['pos']] -%}
+                {%- for fmkey,fmvalue in funcmap[funcmap['def']==value['name']].iterrows()
+                    if funcmap.shape[0] > 0 -%}
+    <tr>
+      <td>&#160;</td>
+      <td class="paramtype"> {{ fmvalue['name'] }}&#160;</td>
+      <td class="paramname"><em> &#160; {{ value['arg'] }} </em> </td>
+    </tr>
+                   {%- for tkey,tvalue in apidef.tPtrFunc.elements.iterrows() if tvalue['name']==fmvalue['name'] %}
+    <tr> <td class="paramtype">&#160;</td><td>&#160;</td><td class="paramdescr"> &#160; 
+                       {%- if tvalue['type'] == 'void' -%} Procedure (
+                       {%- else                        -%} Function (
+                       {%- endif -%}
+                       {%- set counter = namespace(pos = 0) -%}
+                       {%- for pfkey,pfvalue in apidef.PtrF.elements.iterrows() 
+                           if pfvalue['name']==fmvalue['name'] and pfvalue['apos'] != '0' %}
+                          {%- if counter.pos > 0 -%} , {% endif -%}
+            <em>{{ DPureCall(pfvalue['type']) }}</em> <b>{{ pfvalue['arg'] }}</b> : <em>{{ DType(pfvalue['type']) }}</em>
+                          {%- set counter.pos = counter.pos + 1 -%}
+                       {%- endfor -%}
+                       {%- if tvalue['type'] == 'void' %} )
+                       {%- else                        %} ) returns <em> {{ DType(tvalue['type']) }} </em>
+                       {%- endif -%}
+    </td></tr>
+                   {%- endfor -%}
+                {%- endfor -%}
+              {%- endif -%}
+            {%- else                           -%}
+    <tr>
+      <td>&#160;</td>
+      <td class="paramtype"> {{ DPureCall(value['type']) }}&#160;{{ DType(value['type']) }}&#160;</td>
+      <td class="paramname"><em> &#160; {{ value['arg'] }} </em> </td>
+    </tr>
+             {%- endif -%}
+             {%- if value['text'] | length > 0 -%}
+    <tr><td class="paramtype">&#160;</td><td>&#160;</td><td class="paramdescr"> &#160; {{ value['text'] }} </td>
+    </tr>
+             {%- endif -%}
+          {%- endfor -%}
+    </table>
+    </dd>
+  </dl>
+       {%- endif -%}
+    {%- endif -%}
+{% endmacro -%}
+{%- macro pnattribute(name, attribute) %}
+    {%- if attribute == 'description'  -%}
+  <p class="functiondescr"> {{ apidef.pn.elements[apidef.pn.elements['name']==name]['text'].iloc[0] }} </p>
+    {%- elif attribute == 'type'     -%}
+       {%- set data = apidef.pn.elements[apidef.pn.elements['name']==name] -%} 
+       {%- if data['type'].iloc[0] != 'void'  -%} 
+  <dl class="section type"><dt>Type</dt><dd> Property of type <em>{{ DType(data['type'].iloc[0]) }}</em> </dd></dl>
+       {%- endif -%}
+    {%- endif -%}
+{% endmacro -%}
+
+{%- macro attribute(name, attribute) %}
+    {%- if name in tfnamelist -%} {{ tfattribute(name,attribute) }}
+    {%- else                  -%} {{ pnattribute(name,attribute) }}
+    {%- endif -%}
+{% endmacro -%}
+
+{%- if apidef.pn.elements.shape[0] > 0  -%}
+{%- for name in apidef.pn.elements['name'].tolist()|unique|sort -%}
+  {%- if name in pnnamelist -%} 
+    {%- set data = apidef.pn.elements[apidef.pn.elements['name']==name] -%}
+    {%- for key,value in data.iterrows() if data.shape[0] > 0 -%}
+       {%- if value['pactions']=='w' %}
+<a id="{{ name }}Set"></a>
+<h3 class="functionitem">{{ name }}Set&#160;<a href="#functionDefinition">&crarr;</a></h3>
+<div class="functionitem">
+  {{ attribute(name, 'description') }}
+  {{ attribute(name, 'type') }}
+  {{ attribute(name, 'return') }}
+  <dl class="params"><dt>Action</dt><dd> write </dd></dl>
+  {{ attribute(name, 'parameter') }}
+</div>
+       {%- else                              %}
+<a id="{{ name }}"></a>
+<h3 class="functionitem">{{ name }}&#160;<a href="#functionDefinition">&crarr;</a></h3>
+<div class="functionitem">
+  {{ attribute(name, 'description') }}
+  {{ attribute(name, 'type') }}
+  {{ attribute(name, 'return') }}
+  <dl class="params"><dt>Action</dt><dd> read </dd></dl>
+  {{ attribute(name, 'parameter') }}
+</div>
+       {%- endif -%}
+    {%- endfor -%}
+  {%- else                   %}
+<a id="{{ name }}"></a>
+<h3 class="functionitem">{{ name }}&#160;<a href="#functionDefinition">&crarr;</a></h3>
+<div class="functionitem">
+  {{ attribute(name, 'description') }}
+  {{ attribute(name, 'type') }}
+  {{ attribute(name, 'return') }}
+  {{ attribute(name, 'parameter') }}
+</div>
+  {%- endif -%}
+{% endfor -%}
+{%- endif -%}
+
+{%- for name in apidef.tfunc.elements['name'].tolist()|unique|sort -%}
+  {%- set data = apidef.tfunc.elements[apidef.tfunc.elements['name']==name] -%}
+  {%- for key,value in data.iterrows() if data.shape[0] > 0 -%}
+<a id="{{ name }}"></a>
+<h3 class="functionitem">{{ name }}&#160;<a href="#functionDefinition">&crarr;</a></h3>
+<div class="functionitem">
+  {{ attribute(name, 'description') }}
+  {{ attribute(name, 'details') }}
+  {{ attribute(name, 'type') }}
+  {{ attribute(name, 'return') }}
+  {{ attribute(name, 'parameter') }}
+</div>
+  {%- endfor -%}
+{% endfor -%}
+</div>
+</div><!-- contents -->
+
+</div><!-- doc-content -->
+</div><!-- content-area -->
+<footer id="footer-area" class="bottomnav">
+    <div class="right"> Copyright &copy; <a target="_blank" href="http://www.gams.com">GAMS Development Corporation</a> </div>
+  </footer>
+<script src="../../style/jquery.js"></script>
+<script src="../../style/jquery.highlight.js"></script>
+<script src="../../style/navtree.js"></script>
+<script src="../../style/navtreeinfo.js"></script>
+<script src="../../style/navtreeindex.js"></script>
+<script>
+if (recallStatus("toc") == "hidden" || recallStatus("layout") == "collapsed") {
+    $('#context-sidebar').hide();
+    $('#split-bar').hide();
+}
+
+$(document).ready(function(){
+   initTOCPage();
+
+   var gamsversion = "{{ api.SysRelease }}";
+   <!--#include virtual="/docversions.js"-->
+});
+</script>
+<div id="gamsfooter">
+  <!--#include virtual="/footer.html" -->
+</div>
+</body>
+</html>

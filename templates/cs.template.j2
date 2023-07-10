@@ -1,0 +1,1168 @@
+{% macro prettyWhiteSpace(len) -%}
+{%- for n in range(len) %} {% endfor -%}
+{%- endmacro -%}
+
+{%- macro csType(type) -%}
+{{ datadef.csType.elements[datadef.csType.elements['ta']==type]['text'].iloc[0] }}
+{%- endmacro -%}
+
+{%- macro csCall(type) -%}
+{{ datadef.csCall.elements[datadef.csCall.elements['ta']==type]['text'].iloc[0] }}
+{%- endmacro -%}
+
+{%- macro csDefVal(type) -%}
+{{ datadef.csDefVal.elements[datadef.csDefVal.elements['ta']==type]['text'].iloc[0] }}
+{%- endmacro -%}
+
+{%- macro taind(type) -%}
+{{ datadef.taind.elements[datadef.taind.elements['type']==type]['value'].iloc[0] }}
+{%- endmacro -%}
+
+{%- macro farg(name) -%}
+{%- if apidef.farg.elements.shape[0] > 0 and  name in apidef.farg.elements['name'].tolist() -%}
+    {{ apidef.farg.elements[apidef.farg.elements['name']==name]['value'].iloc[0] }}
+{%- else  -%} 0
+{%- endif -%} 
+{%- endmacro -%}
+
+{%- set MaxDimStyle = '' -%}
+{%- if ((apidef.MaxDimStyle is defined) and (apidef.MaxDimStyle.elements.shape[0] > 0)) -%}
+    {%- set mds = apidef.MaxDimStyle.elements[apidef.MaxDimStyle.elements['prefix']==apidef.Prefix] -%}
+    {%- if mds.shape[0] > 0 -%}
+        {%- set MaxDimStyle = mds['prefix'].iloc[0] -%}
+    {%- endif -%}
+{%- endif -%}
+
+using System;
+using System.Text;
+using System.Runtime.InteropServices;
+using System.IO;
+
+// C#  procedure wrapper {{ api.generatedstr }}
+//
+// GAMS - Loading mechanism for GAMS Expert-Level APIs
+//
+// Copyright (c) 2016-{{ api.SysYear }} GAMS Software GmbH <support@gams.com>
+// Copyright (c) 2016-{{ api.SysYear }} GAMS Development Corp. <support@gams.com>
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+
+internal class {{ apidef.CSCall }}: IDisposable
+{
+    private IntPtr p{{ apidef.Prefix }};
+    private bool extHandle;
+    private bool _disposed;
+
+#if __MonoCS__ || __APPLE__
+    private delegate IntPtr DelLoadLibrary (string dllName, int flag);
+    private delegate IntPtr DelGetProcAddress (IntPtr hModule, string procedureName);
+    private delegate bool DelFreeLibrary (IntPtr hModul);
+
+#if __APPLE__
+    [DllImport("libdl.dylib")]
+    internal static extern IntPtr dlopen(String dllname, int flags);
+
+    [DllImport("libdl.dylib")]
+    internal static extern IntPtr dlsym(IntPtr hModule, String procedureName);
+
+    [DllImport("libdl.dylib")] //int
+    internal static extern bool dlclose (IntPtr hModul);
+#else
+    [DllImport("libdl.so")]
+    internal static extern IntPtr dlopen(String dllname, int flags);
+
+    [DllImport("libdl.so")]
+    internal static extern IntPtr dlsym(IntPtr hModule, String procedureName);
+
+    [DllImport("libdl.so")]
+    internal static extern bool dlclose (IntPtr hModul);
+#endif
+
+    DelLoadLibrary LoadLibrary = new DelLoadLibrary(dlopen);
+    DelGetProcAddress GetProcAddress = new DelGetProcAddress (dlsym);
+    DelFreeLibrary FreeLibrary = new DelFreeLibrary (dlclose);
+#else
+    [DllImport("kernel32.dll")]
+    public static extern IntPtr LoadLibrary(string dllToLoad);
+    [DllImport("kernel32.dll")]
+    public static extern IntPtr GetProcAddress(IntPtr hModule, string procedureName);
+    [DllImport("kernel32.dll")]
+    public static extern bool FreeLibrary(IntPtr hModule);
+#endif
+
+{# write constants -#}
+{%- for key,value in apidef.cname.elements.iterrows() %}
+    {%- set counter = namespace(pos = 1) -%}
+    {%- for gkey,gvalue in apidef.gcon.elements[apidef.gcon.elements['group']==value['group']].iterrows()
+        if apidef.gcon.elements.shape[0] > 0 -%}
+        {%- set len = value['maxlen'] - gvalue['len'] %}
+    public const int {{ gvalue['constant']}}{{ prettyWhiteSpace(len) }} = {{ gvalue['value']}};
+        {%- if counter.pos == 1 %}  // {{ value['group'] }}  {%- endif -%}
+        {%- set counter.pos = counter.pos + 1 -%}
+    {%- endfor -%} {#- apidef.gcon #}
+{% endfor -%} {#- apidef.cname #}
+
+{#- write string constants #}
+{%- for key,value in apidef.csname.elements.iterrows() -%}
+    {%- set counter = namespace(pos = 1) -%}
+    {%- for gkey,gvalue in apidef.gstrcon.elements[apidef.gstrcon.elements['group']==value['group']].iterrows() 
+        if apidef.gstrcon.elements.shape[0] > 0 -%}
+        {%- set len = value['maxlen'] - gvalue['len'] %}
+    public const string {{ gvalue['constant']}}{{ prettyWhiteSpace(len) }} = "{{ gvalue['value']}}";
+        {%- if counter.pos == 1 %}  // {{ value['group'] }}  {%- endif -%}
+        {%- set counter.pos = counter.pos + 1 -%}
+    {%- endfor -%} {#- apidef.gstrcon -#}
+{%- endfor -%} {#- apidef.csname #}
+
+{%- if (apidef.haveTypedefs.elements.shape[0] > 0 and 
+        apidef.Prefix in apidef.haveTypedefs.elements['prefix'].tolist()) -%}
+       {%- for key,value in apidef.tPtrFunc.elements.iterrows() %}
+    public delegate 
+           {%- if value['type'] in datadef.tapc.elements['ta'].tolist() %} string
+           {%- else                                                     %} {{ csType(value['type']) }}
+           {%- endif %} {{ value['name'] }}(
+           {%- set counter = namespace(argpos = 0) -%}
+           {%- for pkey,pvalue in apidef.PtrF.elements.iterrows() if pvalue['name']==value['name'] and pvalue['apos'] != '0' %}
+              {%- if counter.argpos > 0 -%} , {%- endif -%}
+              {%- if pvalue['type'] == 'osi'                                                   -%}
+{{ csCall(pvalue['type']) }}byte {{ pvalue['arg'] }}
+              {%- elif pvalue['type'] == 'bool'                                                -%}
+int {{ pvalue['arg'] }}
+              {%- elif pvalue['type'] in datadef.tapc.elements['ta'].tolist() -%}
+string {{ pvalue['arg'] }}
+              {%- elif pvalue['type'] in datadef.taar.elements['ta'].tolist() -%}
+IntPtr {{ pvalue['arg'] }}
+              {%- else                                                                         -%}
+{{ csCall(pvalue['type']) }}{{ csType(pvalue['type']) }} {{ pvalue['arg'] }}
+              {%- endif %}
+              {%- set counter.argpos = counter.argpos + 1 -%}
+           {%- endfor -%} {#- PtrF -#}
+);
+
+       {%- endfor -%} {#- tPtrFunc #}
+{% endif %}
+
+{%- if apidef.ulp.elements.shape[0] > 0 and apidef.Prefix in apidef.ulp.elements['prefix'].tolist() %}
+    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+    private delegate void {{ apidef.Prefix }}SetLoadPath_t (string s);
+    private static {{ apidef.Prefix }}SetLoadPath_t dll_{{ apidef.Prefix }}SetLoadPath;
+    private static void d_{{ apidef.Prefix }}SetLoadPath (string s)
+    { }
+    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+    private delegate void {{ apidef.Prefix }}GetLoadPath_t (ref byte s);
+    private static {{ apidef.Prefix }}GetLoadPath_t dll_{{ apidef.Prefix }}GetLoadPath;
+    private static void d_{{ apidef.Prefix }}GetLoadPath (ref byte s)
+    { }
+{% endif -%} {#- apidef.ulp #}
+
+{%- set tpp = datadef.tpp.elements['tp'] -%}
+{#- write functions #}
+{%- for key,value in apidef.tfunc.elements.iterrows()  %}
+    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+{#-
+LW   if(fstr(en) and not enostringa(en), put 'c'
+LW   elseif enostringa(en), put 'b');
+LW   put en.tl '")]'
+Ugly: We need gmdFreeSymbolIterator indepndent of a GMD instance   {%- if apidef.internalCS.elements.shape[0] > 0 and
+          value['name'] in apidef.internalCS.elements['name'].tolist() %} 
+-#}
+   {%- if apidef.internalCS.elements.shape[0] > 0 and
+          value['name'] in apidef.internalCS.elements['name'].tolist() %}
+    internal delegate 
+   {%- else                                                            %}
+    private delegate 
+   {%- endif -%}
+   {%- if value['type'] != 'funcptr' -%}
+       {%- if value['type'] in datadef.tapc.elements['ta'].tolist() %} string
+       {%- elif value['type'] == 'bool'                             %} int
+       {%- elif value['type'] == 'oss'                              %} void
+       {%- else                                                     %} {{ csType(value['type']) }}
+       {%- endif -%}
+   {%- else                          -%}
+       {%- for fmkey,fmvalue in apidef.FuncMap.elements[apidef.FuncMap.elements['def']==value['name']].iterrows()
+           if apidef.FuncMap.elements.shape[0] > 0 %} {{ fmvalue['name'] }}
+       {%- endfor -%}
+   {%- endif %} {{ value['name'] }}_t(IntPtr p{{ apidef.Prefix }}
+   {%- set f = apidef.f.elements[apidef.f.elements['name']==value['name']] -%}
+   {%- for fkey,fvalue in f[f['pos'].isin(tpp)].iterrows() if f.shape[0] > 0 -%}
+       {%- if fvalue['type'] != 'funcptr' -%}
+            {%- if value['name'] in apidef.fost.elements['name'].tolist() and 
+                   fvalue['type'] in ['oss','xss','osi'] -%} {#- ,'tass' -#}
+                {%- if fvalue['type'] == 'osi' -%} ,{{ csCall(fvalue['type']) }}byte[,] {{ fvalue['arg'] }}
+                {%- else                       -%} ,StringBuilder {{ fvalue['arg'] }}
+                {%- endif -%}
+                {%- if fvalue['type'] == 'xss' -%} ,int {{ fvalue['arg'] }}_i
+                {%- endif -%}
+            {%- else                                     -%}
+                {%- if fvalue['type'] == 'csi'              -%} ,{{ csCall(fvalue['type']) }}{{ csType(fvalue['type']) }} {{ fvalue['arg'] }}
+                {%- elif fvalue['type'] in ['bool','vbool'] -%} ,{{ csCall(fvalue['type']) }}int {{ fvalue['arg'] }}
+                {%- else                                    -%} ,{{ csCall(fvalue['type']) }}{{ csType(fvalue['type']) }} {{ fvalue['arg'] }}
+                {%- endif -%}
+
+            {%- endif -%}
+       {%- else                           -%}
+          {%-if apidef.FuncMap.elements.shape[0] > 0 -%}
+            {%- set funcmap   = apidef.FuncMap.elements[apidef.FuncMap.elements['fpos'] == fvalue['pos']] -%}
+            {%- for fmkey,fmvalue in funcmap[funcmap['def']==fvalue['name']].iterrows()
+                if funcmap.shape[0] > 0 -%} ,{{ fmvalue['name'] }} {{ fvalue['arg'] }}
+            {%- endfor -%}
+          {%- endif -%}
+       {%- endif -%}
+   {%- endfor -%} {#- f #}
+   {%- if value['type'] == 'oss' -%} ,StringBuilder sst_result {%- endif -%}
+);
+{#- Ugly: We need gmdFreeSymbolIterator indepndent of a GMD instance -#}
+   {%- if apidef.internalCS.elements.shape[0] > 0 and
+          value['name'] in apidef.internalCS.elements['name'].tolist() %}
+    internal static {{ value['name'] }}_t dll_{{ value['name'] }};
+   {%- else                                                            %}
+    private static {{ value['name'] }}_t dll_{{ value['name'] }};
+   {%- endif %}
+    private static 
+   {%- if value['type'] != 'funcptr' -%}
+       {%- if value['type'] in datadef.tapc.elements['ta'].tolist() %} string
+       {%- elif value['type'] == 'bool'                             %} int
+       {%- elif value['type'] == 'oss'                              %} void
+       {%- else                                                     %} {{ csType(value['type']) }}
+       {%- endif -%}
+   {%- else                          -%}
+       {%- for fmkey,fmvalue in apidef.FuncMap.elements[apidef.FuncMap.elements['def']==value['name']].iterrows()
+           if apidef.FuncMap.elements.shape[0] > 0 -%}
+           {%- if fmvalue['fpos'] == '0' %} {{ fmvalue['name'] }} {%- endif -%}
+       {%- endfor -%}
+   {%- endif %} d_{{ value['name'] }}(IntPtr p{{ apidef.Prefix }}  
+   {%- for fkey,fvalue in f[f['pos'].isin(tpp)].iterrows() if f.shape[0] > 0 -%}
+       {%- if fvalue['type'] != 'funcptr' -%}
+            {%- if value['name'] in apidef.fost.elements['name'].tolist() and 
+                   fvalue['type'] in ['oss','xss','osi'] -%} {#- ,'tass' -#}
+                {%- if fvalue['type'] == 'osi' -%} ,{{ csCall(fvalue['type']) }}byte[,] {{ fvalue['arg'] }}
+                {%- else                       -%} ,StringBuilder {{ fvalue['arg'] }}
+                {%- endif -%}
+                {%- if fvalue['type'] == 'xss' -%} ,int {{ fvalue['arg'] }}_i
+                {%- endif -%}
+            {%- else                                     -%}
+                {%- if fvalue['type'] == 'csi'              -%} ,{{ csCall(fvalue['type']) }}{{ csType(fvalue['type']) }} {{ fvalue['arg'] }}
+                {%- elif fvalue['type'] in ['bool','vbool'] -%} ,{{ csCall(fvalue['type']) }}int {{ fvalue['arg'] }}
+                {%- else                                    -%} ,{{ csCall(fvalue['type']) }}{{ csType(fvalue['type']) }} {{ fvalue['arg'] }}
+                {%- endif -%}
+            {%- endif -%}
+       {%- else                           -%}
+          {%-if apidef.FuncMap.elements.shape[0] > 0 -%}
+            {%- set funcmap   = apidef.FuncMap.elements[apidef.FuncMap.elements['fpos'] == fvalue['pos']] -%}
+            {%- for fmkey,fmvalue in funcmap[funcmap['def']==fvalue['name']].iterrows()
+                if funcmap.shape[0] > 0 -%} ,{{ fmvalue['name'] }} {{ fvalue['arg'] }} 
+            {%- endfor -%}
+          {%- endif -%}
+       {%- endif -%}
+   {%- endfor -%} {#- f #}
+   {%- if value['type'] == 'oss' -%} ,StringBuilder sst_result {%- endif -%}
+)
+    { {{ apidef.Prefix }}ErrorHandling("{{ value['name'] }} could not be loaded");
+   {%- if value['type'] not in ['void','oss'] %} return {{ csDefVal(value['type']) }}; {%- endif %} }
+{%- endfor -%} {#- tfunc #}
+
+{#- write properties #}
+{% for key,value in apidef.pn.elements.iterrows() %}
+    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+{#-
+*LW   put$sameas('oSS',ta) 'c';
+*LW   put en.tl;
+*LW   put$sameas('w',pactions) 'Set';
+*LW   put '")]';
+#}
+    private delegate 
+    {%- if value['pactions']=='r' -%}
+       {%- if value['type'] != 'funcptr' -%}
+           {%- if value['type'] in datadef.tapc.elements['ta'].tolist() %} string
+           {%- elif value['type'] == 'oss'                              %} void
+           {%- elif value['type'] == 'bool'                             %} int
+           {%- else                                                     %} {{ csType(value['type']) }}
+           {%- endif %} {{ value['name'] }}_t(IntPtr p{{ apidef.Prefix }}  
+           {%- if value['type'] == 'oss' -%} , StringBuilder sst_result {%- endif -%}
+);
+       {%- else                          -%}
+            {%- for fmkey,fmvalue in apidef.FuncMap.elements[apidef.FuncMap.elements['def']==value['name']].iterrows()
+                if apidef.FuncMap.elements.shape[0] > 0 -%}
+                {%- if fmvalue['fpos']=='p' -%} {{ fmvalue['name'] }} {{ value['name'] }}_t(IntPtr p{{ apidef.Prefix }} ); 
+                {%- endif -%}
+            {%- endfor -%}
+       {%- endif -%}
+    {%- else                        %} 
+       {%- if value['type'] != 'funcptr' %} void {{ value['name'] }}Set_t(IntPtr p{{ apidef.Prefix }},
+           {%- if value['type']  != 'oss' -%} {{ csCall(value['type']) }} {%- endif -%}
+           {%- if value['type'] == 'bool' -%} int x);
+           {%- else                       -%} {{ csType(value['type']) }} x);
+           {%- endif -%}
+       {%- else                          -%}
+            {%- for fmkey,fmvalue in apidef.FuncMap.elements[apidef.FuncMap.elements['def']==value['name']].iterrows()
+                if apidef.FuncMap.elements.shape[0] > 0 -%}
+                {%- if fmvalue['fpos']=='p' -%} void {{ value['name'] }}Set_t(IntPtr p{{ apidef.Prefix }} ,{{ fmvalue['name'] }} x)
+                {%- endif -%}
+            {%- endfor -%}
+       {%- endif -%}
+    {%- endif -%}
+    {%- if value['pactions']=='r' %}
+    private static {{ value['name'] }}_t dll_{{ value['name'] }};
+    {%- else                      %}
+    private static {{ value['name'] }}Set_t dll_{{ value['name'] }}Set;
+    {%- endif %}
+    private static 
+    {%- if value['pactions']=='r' %}
+        {%- if value['type'] != 'funcptr' -%}
+            {%- if value['type'] in datadef.tapc.elements['ta'].tolist() %} string
+            {%- elif value['type'] == 'oss'                              %} void
+            {%- elif value['type'] == 'bool'                             %} int
+            {%- else                                                     %} {{ csType(value['type']) }}
+            {%- endif %} d_{{ value['name'] }}(IntPtr p{{ apidef.Prefix }}
+            {%- if value['type'] == 'oss' -%} ,StringBuilder sst_result {%- endif -%}
+)
+        {%- else                          -%}
+            {%- for fmkey,fmvalue in apidef.FuncMap.elements[apidef.FuncMap.elements['def']==value['name']].iterrows()
+                if apidef.FuncMap.elements.shape[0] > 0 -%}
+                {%- if fmvalue['fpos'] == 'p' %} {{ fmvalue['name'] }} d_{{ value['name'] }}(IntPtr p{{ apidef.Prefix }})
+                {%- endif -%}
+            {%- endfor -%}
+        {%- endif %} 
+    {%- else                      %}
+       {%- if value['type'] != 'funcptr' %} void d_{{ value['name'] }}Set(IntPtr p{{ apidef.Prefix }},
+           {%- if value['type']  != 'oss' -%} {{ csCall(value['type']) }} {%- endif -%}
+           {%- if value['type'] == 'bool' -%} int x
+           {%- else                       -%} {{ csType(value['type']) }} x
+           {%- endif -%}
+)
+       {%- else                          -%}
+            {%- for fmkey,fmvalue in apidef.FuncMap.elements[apidef.FuncMap.elements['def']==value['name']].iterrows()
+                if apidef.FuncMap.elements.shape[0] > 0 -%}
+                {%- if fmvalue['fpos']=='p' -%} void d_{{ value['name'] }}Set(IntPtr p{{ apidef.Prefix }}  ,{{ fmvalue['name'] }} x)
+                {%- endif -%}
+            {%- endfor -%}
+       {%- endif -%}
+    {%- endif %}
+    { {{ apidef.Prefix }}ErrorHandling("{{ value['name'] }}
+    {%- if value['pactions']=='w' -%} Set {%- endif %} could not be loaded");
+    {%- if value['pactions']=='r' and value['type'] not in ['void','oss'] %} return {{ csDefVal(value['type']) }};
+    {%- endif -%}
+{{ prettyWhiteSpace(1) }}}
+
+{%- endfor -%} {#- pn #}
+
+    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+    private delegate void {{ apidef.prexfix.lower() }}create_t(ref IntPtr p{{ apidef.Prefix }});
+    private static {{ apidef.prexfix.lower() }}create_t {{ apidef.prexfix.lower() }}create;
+{%- if apidef.UseCD.elements.shape[0] > 0 and  apidef.Prefix in apidef.UseCD.elements['prefix'].tolist() %}
+    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+    private delegate void {{ apidef.prexfix.lower() }}created_t(ref IntPtr p{{ apidef.Prefix }}, string dirName);
+    private static {{ apidef.prexfix.lower() }}created_t {{ apidef.prexfix.lower() }}created;
+{%- endif %}
+    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+    private delegate void {{ apidef.prexfix.lower() }}free_t(ref IntPtr p{{ apidef.Prefix }});
+    private static {{ apidef.prexfix.lower() }}free_t {{ apidef.prexfix.lower() }}free;
+    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+    private delegate int {{ apidef.prexfix.lower() }}apiversion_t(int api, StringBuilder msg, ref int cl);
+    private static {{ apidef.prexfix.lower() }}apiversion_t dll_{{ apidef.prexfix.lower() }}apiversion;
+    [UnmanagedFunctionPointer(CallingConvention.StdCall)]
+    private delegate int {{ apidef.prexfix.lower() }}check_t(string ep, int nargs, int[] s, StringBuilder msg);
+    private static {{ apidef.prexfix.lower() }}check_t dll_{{ apidef.prexfix.lower() }}check;
+
+    public delegate bool {{ apidef.Prefix }}ErrorCallback_t(int ErrCount, string Msg);
+
+    static bool isLoaded = false;
+    static IntPtr h;
+    static bool ScreenIndicator = true;
+    static bool ExceptionIndicator = false;
+    static bool ExitIndicator = true;
+    static {{ apidef.Prefix }}ErrorCallback_t ErrorCallBack = null;
+    static int APIErrorCount = 0;
+
+    private bool XLibraryLoad (string dllName, ref string errBuf)
+    {
+        string symName;
+        int cl = 0;
+        IntPtr pAddressOfFunctionToCall;
+
+        if (isLoaded)
+            return true;
+
+#if __MonoCS__ || __APPLE__
+        h = LoadLibrary(@dllName,2);
+#else
+        h = LoadLibrary(@dllName);
+#endif
+
+        if (IntPtr.Zero == h) {
+            errBuf = "Could not load shared library " + dllName;
+            return false;
+        }
+
+        pAddressOfFunctionToCall = GetProcAddress(h, "{{ apidef.prexfix.lower() }}create");
+        if(pAddressOfFunctionToCall != IntPtr.Zero)
+            {{ apidef.prexfix.lower() }}create = ({{ apidef.prexfix.lower() }}create_t)Marshal.GetDelegateForFunctionPointer(pAddressOfFunctionToCall, typeof({{ apidef.prexfix.lower() }}create_t));
+        else {
+           symName = "{{ apidef.prexfix.lower() }}create"; goto symMissing;
+        }
+
+
+{%- if apidef.UseCD.elements.shape[0] > 0 and  apidef.Prefix in apidef.UseCD.elements['prefix'].tolist() -%}
+    {%- if apidef.CLibUse.elements.shape[0] > 0 and apidef.Prefix in apidef.CLibUse.elements['prefix'].tolist() %}
+        pAddressOfFunctionToCall = GetProcAddress(h, "{{ apidef.prexfix.lower() }}created");
+        if(pAddressOfFunctionToCall != IntPtr.Zero)
+            {{ apidef.prexfix.lower() }}created = ({{ apidef.prexfix.lower() }}created_t)Marshal.GetDelegateForFunctionPointer(pAddressOfFunctionToCall, typeof({{ apidef.prexfix.lower() }}created_t));
+        else {
+           symName = "{{ apidef.prexfix.lower() }}created"; goto symMissing;
+        }
+    {%- else                                                                                                    %}
+        pAddressOfFunctionToCall = GetProcAddress(h, "c{{ apidef.prexfix.lower() }}created");
+        if(pAddressOfFunctionToCall != IntPtr.Zero)
+            {{ apidef.prexfix.lower() }}created = ({{ apidef.prexfix.lower() }}created_t)Marshal.GetDelegateForFunctionPointer(pAddressOfFunctionToCall, typeof({{ apidef.prexfix.lower() }}created_t));
+        else {
+           symName = "c{{ apidef.prexfix.lower() }}created"; goto symMissing;
+        }
+    {%- endif -%}
+{%- endif %}
+        pAddressOfFunctionToCall = GetProcAddress(h, "{{ apidef.prexfix.lower() }}free");
+        if(pAddressOfFunctionToCall != IntPtr.Zero)
+            {{ apidef.prexfix.lower() }}free = ({{ apidef.prexfix.lower() }}free_t)Marshal.GetDelegateForFunctionPointer(pAddressOfFunctionToCall, typeof({{ apidef.prexfix.lower() }}free_t));
+        else {
+           symName = "{{ apidef.prexfix.lower() }}free"; goto symMissing;
+        }
+{%- if apidef.CLibUse.elements.shape[0] > 0 and apidef.Prefix in apidef.CLibUse.elements['prefix'].tolist() %}
+        pAddressOfFunctionToCall = GetProcAddress(h, "c__{{ apidef.prexfix.lower() }}check");
+        if(pAddressOfFunctionToCall != IntPtr.Zero)
+            dll_{{ apidef.prexfix.lower() }}check = ({{ apidef.prexfix.lower() }}check_t)Marshal.GetDelegateForFunctionPointer(pAddressOfFunctionToCall, typeof({{ apidef.prexfix.lower() }}check_t));
+        else {
+           symName = "c__{{ apidef.prexfix.lower() }}check"; goto symMissing;
+        }
+        pAddressOfFunctionToCall = GetProcAddress(h, "c__{{ apidef.prexfix.lower() }}apiversion");
+        if(pAddressOfFunctionToCall != IntPtr.Zero)
+            dll_{{ apidef.prexfix.lower() }}apiversion = ({{ apidef.prexfix.lower() }}apiversion_t)Marshal.GetDelegateForFunctionPointer(pAddressOfFunctionToCall, typeof({{ apidef.prexfix.lower() }}apiversion_t));
+        else {
+           symName = "c__{{ apidef.prexfix.lower() }}apiversion"; goto symMissing;
+        }
+{%- else                                                                                                    %}
+        pAddressOfFunctionToCall = GetProcAddress(h, "c{{ apidef.prexfix.lower() }}check");
+        if(pAddressOfFunctionToCall != IntPtr.Zero)
+            dll_{{ apidef.prexfix.lower() }}check = ({{ apidef.prexfix.lower() }}check_t)Marshal.GetDelegateForFunctionPointer(pAddressOfFunctionToCall, typeof({{ apidef.prexfix.lower() }}check_t));
+        else {
+           symName = "c{{ apidef.prexfix.lower() }}check"; goto symMissing;
+        }
+        pAddressOfFunctionToCall = GetProcAddress(h, "c{{ apidef.prexfix.lower() }}apiversion");
+        if(pAddressOfFunctionToCall != IntPtr.Zero)
+            dll_{{ apidef.prexfix.lower() }}apiversion = ({{ apidef.prexfix.lower() }}apiversion_t)Marshal.GetDelegateForFunctionPointer(pAddressOfFunctionToCall, typeof({{ apidef.prexfix.lower() }}apiversion_t));
+        else {
+           symName = "c{{ apidef.prexfix.lower() }}apiversion"; goto symMissing;
+        }
+{%- endif %}
+        if ({{ apidef.prexfix.lower() }}apiversion({{ apidef.APIVersion }},ref errBuf, ref cl) == 0)
+            return false;
+{% if apidef.ulp.elements.shape[0] > 0 and apidef.Prefix in apidef.ulp.elements['prefix'].tolist() %}
+    {%- if apidef.CLibUse.elements.shape[0] > 0 and apidef.Prefix in apidef.CLibUse.elements['prefix'].tolist() %}
+        pAddressOfFunctionToCall = GetProcAddress(h, "c__{{ apidef.Prefix }}setloadpath");
+        if(pAddressOfFunctionToCall != IntPtr.Zero)
+            dll_{{ apidef.Prefix }}SetLoadPath = ({{ apidef.Prefix }}SetLoadPath_t)Marshal.GetDelegateForFunctionPointer(pAddressOfFunctionToCall, typeof({{ apidef.Prefix }}SetLoadPath_t));
+        pAddressOfFunctionToCall = GetProcAddress(h, "c__{{ apidef.Prefix }}getloadpath");
+        if(pAddressOfFunctionToCall != IntPtr.Zero)
+            dll_{{ apidef.Prefix }}GetLoadPath = ({{ apidef.Prefix }}GetLoadPath_t)Marshal.GetDelegateForFunctionPointer(pAddressOfFunctionToCall, typeof({{ apidef.Prefix }}GetLoadPath_t));
+    {%- else                                                                                                    %}
+        pAddressOfFunctionToCall = GetProcAddress(h, "c{{ apidef.Prefix }}setloadpath");
+        if(pAddressOfFunctionToCall != IntPtr.Zero)
+            dll_{{ apidef.Prefix }}SetLoadPath = ({{ apidef.Prefix }}SetLoadPath_t)Marshal.GetDelegateForFunctionPointer(pAddressOfFunctionToCall, typeof({{ apidef.Prefix }}SetLoadPath_t));
+        pAddressOfFunctionToCall = GetProcAddress(h, "c{{ apidef.Prefix }}getloadpath");
+        if(pAddressOfFunctionToCall != IntPtr.Zero)
+            dll_{{ apidef.Prefix }}GetLoadPath = ({{ apidef.Prefix }}GetLoadPath_t)Marshal.GetDelegateForFunctionPointer(pAddressOfFunctionToCall, typeof({{ apidef.Prefix }}GetLoadPath_t));
+    {%- endif %}
+{%- endif %}
+
+{%- for key,value in apidef.tfunc.elements.iterrows()  %}
+        {int[] s={ {#--#} {{ taind(value['type']) }}
+    {%- set f = apidef.f.elements[apidef.f.elements['name']==value['name']] -%}
+    {%- for fkey,fvalue in f[f['pos'].isin(tpp)].iterrows() if f.shape[0] > 0 -%}
+,{{ taind(fvalue['type']) }}
+    {%- endfor -%} {#- f -#}
+};
+        if ({{ apidef.prexfix.lower() }}check("{{ value['name'] }}",{{ farg(value['name']) }},s,ref errBuf) == 0)
+            dll_{{ value['name'] }} = d_{{ value['name'] }};
+        else {
+            pAddressOfFunctionToCall = GetProcAddress(h, "
+    {%- if apidef.CLibUse.elements.shape[0] > 0 and  apidef.Prefix in apidef.CLibUse.elements['prefix'].tolist() -%}
+        {%- if apidef.enostringa.elements.shape[0] > 0 and 
+               value['name'] in apidef.enostringa.elements['name'].tolist() -%} n__
+        {%- else                                                            -%} c__
+        {%- endif -%}
+    {%- elif apidef.enostringa.elements.shape[0] > 0 and 
+             value['name'] in apidef.enostringa.elements['name'].tolist() -%} b
+    {%- elif apidef.enstring.elements.shape[0] > 0 and 
+             value['name'] in apidef.enstring.elements['name'].tolist()   -%} c
+    {%- endif -%}
+{{ value['name'].lower() }}");
+            if(pAddressOfFunctionToCall != IntPtr.Zero)
+                dll_{{ value['name'] }} = ({{ value['name'] }}_t)Marshal.GetDelegateForFunctionPointer(pAddressOfFunctionToCall, typeof({{ value['name'] }}_t));
+            else {
+                symName = "
+    {%- if apidef.CLibUse.elements.shape[0] > 0 and apidef.Prefix in apidef.CLibUse.elements['prefix'].tolist() %}
+        {%- if apidef.enostringa.elements.shape[0] > 0 and 
+               value['name'] in apidef.enostringa.elements['name'].tolist() -%} n__
+        {%- else                                                            -%} c__
+        {%- endif -%}
+    {%- elif apidef.enostringa.elements.shape[0] > 0 and 
+             value['name'] in apidef.enostringa.elements['name'].tolist() -%} b
+    {%- elif apidef.enstring.elements.shape[0] > 0 and 
+             value['name'] in apidef.enstring.elements['name'].tolist()   -%} c
+    {%- endif -%}
+ {{ value['name'] }}"; goto symMissing;
+            }}}
+{%- endfor -%} {#- tfunc -#}
+
+{#- write properties #}
+{% for key,value in apidef.pn.elements.iterrows() %}
+    {%- if value['pactions']=='r' %}
+        {int[] s={ {#--#} {{ taind(value['type']) }} {#--#} };
+        if ({{ apidef.prexfix.lower() }}check("{{ value['name'] }}",0,s,ref errBuf) == 0)
+            dll_{{ value['name'] }} = d_{{ value['name'] }};
+        else {
+            pAddressOfFunctionToCall = GetProcAddress(h, "
+        {%- if apidef.CLibUse.elements.shape[0] > 0 and 
+               apidef.Prefix in apidef.CLibUse.elements['prefix'].tolist() -%} c__
+        {%- else                                                           -%}
+            {%- if value['type'] == 'oss' -%} c {%- endif -%}
+        {%- endif -%}
+{{ value['name'].lower() }}");
+            if(pAddressOfFunctionToCall != IntPtr.Zero)
+                dll_{{ value['name'] }} = ({{ value['name'] }}_t)Marshal.GetDelegateForFunctionPointer(pAddressOfFunctionToCall, typeof({{ value['name'] }}_t));
+            else {
+                symName = "
+        {%- if apidef.CLibUse.elements.shape[0] > 0 and 
+               apidef.Prefix in apidef.CLibUse.elements['prefix'].tolist() -%} c__
+        {%- else                                                           -%}
+            {%- if value['type'] == 'oss' -%} c {%- endif -%}
+        {%- endif -%}
+{{ value['name'] }}"; goto symMissing;
+        }}}
+{#-
+         put 'CheckAndLoad(dll_{{ value['name'] }},0,"';
+         if(clibuse, put 'c__'
+         else        put$sameas('oSS',ta) 'c' );
+         put '"); }'
+#}
+    {%- else                    %}
+        {int[] s={ {#--#} {{ taind('void') }},{{ taind(value['type']) }} {#--#} };
+        if ({{ apidef.prexfix.lower() }}check("{{ value['name'] }}Set",1,s,ref errBuf) == 0)
+            dll_{{ value['name'] }}Set = d_{{ value['name'] }}Set;
+        else {
+            pAddressOfFunctionToCall = GetProcAddress(h, "
+        {%- if apidef.CLibUse.elements.shape[0] > 0 and 
+               apidef.Prefix in apidef.CLibUse.elements['prefix'].tolist() -%} c__
+        {%- else                                                           -%}
+            {%- if value['type'] == 'oss' -%} c {%- endif -%}
+        {%- endif -%}
+{{ value['name'].lower() }}set");
+            if(pAddressOfFunctionToCall != IntPtr.Zero)
+                dll_{{ value['name'] }}Set = ({{ value['name'] }}Set_t)Marshal.GetDelegateForFunctionPointer(pAddressOfFunctionToCall, typeof({{ value['name'] }}Set_t));
+            else {
+                symName = "
+        {%- if apidef.CLibUse.elements.shape[0] > 0 and 
+               apidef.Prefix in apidef.CLibUse.elements['prefix'].tolist() -%} c__
+        {%- else                                                           -%}
+            {%- if value['type'] == 'oss' -%} c {%- endif -%}
+        {%- endif -%}
+{{ value['name'] }}Set"; goto symMissing;
+        }}}
+{#-
+*         put 'CheckAndLoad(dll_{{ value['name'] }}Set,1,"';
+*         if(clibuse, put 'c__'
+*         else        put$sameas('oSS',ta) 'c' );
+*         put '"); }' / );
+#}
+    {%- endif -%}
+{%- endfor -%} {#- pn #}
+
+        return true;
+
+        symMissing:
+            errBuf = "Could not load symbol '" + symName + "'";
+            return false;
+
+    } /* XLibraryLoad */
+
+    private bool libloader(string dllPath, string dllName, ref string msgBuf)
+    {
+#if __MonoCS__ || __APPLE__
+#if __APPLE__
+{%- if apidef.CLibUse.elements.shape[0] > 0 and apidef.Prefix in apidef.CLibUse.elements['prefix'].tolist() %}
+        const string libStem = "lib{{ apidef.CLib }}", libExt = ".dylib";
+#else
+        const string libStem = "lib{{ apidef.CLib }}", libExt = ".so";
+#endif
+#else
+        const string libStem = "{{ apidef.CLib }}", libExt = ".dll";
+{%- else                                                                                                    %}
+        const string libStem = "lib{{ apidef.DelphiLib }}", libExt = ".dylib";
+#else
+        const string libStem = "lib{{ apidef.DelphiLib }}", libExt = ".so";
+#endif
+#else
+        const string libStem = "{{ apidef.DelphiLib }}", libExt = ".dll";
+{%- endif %}
+#endif
+        string dllNameBuf = string.Empty;
+        int myrc = 0;
+        string GMS_DLL_SUFFIX = string.Empty;
+
+        msgBuf = string.Empty;
+        if (! isLoaded) {
+            if (string.Empty != dllPath) {
+                dllNameBuf = dllPath;
+                if (Path.DirectorySeparatorChar != dllNameBuf[dllNameBuf.Length-1]) dllNameBuf = dllNameBuf + Path.DirectorySeparatorChar;
+            }
+            if (string.Empty != dllName)
+                dllNameBuf = dllNameBuf + dllName;
+            else {
+                if (8 == IntPtr.Size)
+                    GMS_DLL_SUFFIX = "64";
+                dllNameBuf = dllNameBuf + libStem + GMS_DLL_SUFFIX + libExt;
+            }
+            isLoaded = XLibraryLoad (dllNameBuf, ref msgBuf);
+            if (isLoaded) {
+{%- if apidef.ulp.elements.shape[0] > 0 and apidef.Prefix in apidef.ulp.elements['prefix'].tolist() %}
+            if (null != dll_{{ apidef.Prefix }}SetLoadPath && string.Empty != dllPath) {
+                 {{ apidef.Prefix }}SetLoadPath(dllPath);
+            } else {                            /* no setLoadPath call found */
+                 myrc |= 2;
+            }
+{%- endif %}
+            } else                          /* library load failed */
+                myrc |= 1;
+        }
+        return (myrc & 1) == 0;
+    } /* libloader */
+
+    public bool {{ apidef.Prefix }}GetReady (ref string msgBuf)
+    {
+        return libloader(string.Empty, string.Empty, ref msgBuf);
+    }
+    public bool {{ apidef.Prefix }}GetReadyD (string dirName, ref string msgBuf)
+    {
+        return libloader(dirName, string.Empty, ref msgBuf);
+    }
+    public bool {{ apidef.Prefix }}GetReadyL (string dirName, string libName, ref string msgBuf)
+    {
+        return libloader(dirName, libName, ref msgBuf);
+    }
+
+    public {{ apidef.CSCall }}(ref string msgBuf)
+    {
+        bool {{ apidef.Prefix }}IsReady;
+
+        extHandle = false;
+        _disposed = false;
+        {{ apidef.Prefix }}IsReady = {{ apidef.Prefix }}GetReady (ref msgBuf);
+        if (! {{ apidef.Prefix }}IsReady) return;
+        {{ apidef.prexfix.lower() }}create(ref p{{ apidef.Prefix }});
+        if(p{{ apidef.Prefix }} != IntPtr.Zero)
+        {
+            msgBuf = String.Empty;
+            return;
+        }
+        msgBuf = "Error while creating object";
+    }
+{%- if apidef.UseCD.elements.shape[0] > 0 and  apidef.Prefix in apidef.UseCD.elements['prefix'].tolist() %}
+    public {{ apidef.CSCall }}(string dirName, ref string msgBuf, bool passDN = false)
+{%- else                                                                                                 %}
+    public {{ apidef.CSCall }}(string dirName, ref string msgBuf)
+{%- endif %}
+    {
+        bool {{ apidef.Prefix }}IsReady;
+
+        extHandle = false;
+        _disposed = false;
+        {{ apidef.Prefix }}IsReady = {{ apidef.Prefix }}GetReadyD (dirName, ref msgBuf);
+        if (! {{ apidef.Prefix }}IsReady) return;
+{%- if apidef.UseCD.elements.shape[0] > 0 and  apidef.Prefix in apidef.UseCD.elements['prefix'].tolist() %}
+        if(passDN)
+            {{ apidef.prexfix.lower() }}created(ref p{{ apidef.Prefix }}, dirName);
+        else
+            {{ apidef.prexfix.lower() }}create(ref p{{ apidef.Prefix }});
+{%- else                                                                                                 %}
+        {{ apidef.prexfix.lower() }}create(ref p{{ apidef.Prefix }});
+{%- endif %}
+        if(p{{ apidef.Prefix }} != IntPtr.Zero)
+        {
+            msgBuf = String.Empty;
+            return;
+        }
+        msgBuf = "Error while creating object";
+    }
+{%- if apidef.UseCD.elements.shape[0] > 0 and  apidef.Prefix in apidef.UseCD.elements['prefix'].tolist() %}
+    public {{ apidef.CSCall }}(string dirName, string libName, ref string msgBuf, bool passDN = false)
+{%- else                                                                                                 %}
+    public {{ apidef.CSCall }}(string dirName, string libName, ref string msgBuf)
+{%- endif %}
+    {
+        bool {{ apidef.Prefix }}IsReady;
+
+        extHandle = false;
+        _disposed = false;
+        {{ apidef.Prefix }}IsReady = {{ apidef.Prefix }}GetReadyL (dirName, libName, ref msgBuf);
+        if (! {{ apidef.Prefix }}IsReady) return;
+{%- if apidef.UseCD.elements.shape[0] > 0 and  apidef.Prefix in apidef.UseCD.elements['prefix'].tolist() %}
+        if(passDN)
+            {{ apidef.prexfix.lower() }}created(ref p{{ apidef.Prefix }}, dirName);
+        else
+            {{ apidef.prexfix.lower() }}create(ref p{{ apidef.Prefix }});
+{%- else                                                                                                 %}
+        {{ apidef.prexfix.lower() }}create(ref p{{ apidef.Prefix }});
+{%- endif %}
+        if(p{{ apidef.Prefix }} != IntPtr.Zero)
+        {
+            msgBuf = String.Empty;
+            return;
+        }
+        msgBuf = "Error while creating object";
+    }
+    public {{ apidef.CSCall }}(IntPtr {{ apidef.Prefix }}Handle, ref string msgBuf)
+    {
+        bool {{ apidef.Prefix }}IsReady;
+
+        if({{ apidef.Prefix }}Handle == IntPtr.Zero)
+        {
+           msgBuf = "{{ apidef.Prefix }}Handle is empty";
+           return;
+        }
+        extHandle = true;
+        _disposed = false;
+        {{ apidef.Prefix }}IsReady = {{ apidef.Prefix }}GetReady (ref msgBuf);
+        if (! {{ apidef.Prefix }}IsReady) return;
+        p{{ apidef.Prefix }} = {{ apidef.Prefix }}Handle;
+    }
+    public {{ apidef.CSCall }}(IntPtr {{ apidef.Prefix }}Handle, string dirName, ref string msgBuf)
+    {
+        bool {{ apidef.Prefix }}IsReady;
+
+        if({{ apidef.Prefix }}Handle == IntPtr.Zero)
+        {
+           msgBuf = "{{ apidef.Prefix }}Handle is empty";
+           return;
+        }
+        extHandle = true;
+        _disposed = false;
+        {{ apidef.Prefix }}IsReady = {{ apidef.Prefix }}GetReadyD (dirName, ref msgBuf);
+        if (! {{ apidef.Prefix }}IsReady) return;
+        p{{ apidef.Prefix }} = {{ apidef.Prefix }}Handle;
+    }
+
+    ~{{ apidef.CSCall }}()
+    {
+        Dispose(true);
+    }
+
+    public void Dispose()
+    {
+        Dispose(true);
+
+        // Use SupressFinalize in case a subclass
+        // of this type implements a finalizer.
+        GC.SuppressFinalize(this);
+    }
+
+    private void Dispose(bool disposing)
+    {
+        if (!_disposed)
+        {
+            if (disposing)
+            {
+                if (p{{ apidef.Prefix }} != IntPtr.Zero)
+                    {{ apidef.Prefix }}Free();
+            }
+            // Indicate that the instance has been disposed.
+            _disposed = true;
+        }
+        GC.KeepAlive(this);
+    }
+
+    public int {{ apidef.Prefix }}Free()
+    {
+        if (!extHandle &&  p{{ apidef.Prefix }} != IntPtr.Zero) {{ apidef.prexfix.lower() }}free(ref p{{ apidef.Prefix }});
+        return 1;
+    }
+
+    public bool {{ apidef.Prefix }}LibraryUnload()
+    {
+        return FreeLibrary(h);
+    }
+
+    public IntPtr Get{{ apidef.Prefix }}Ptr()
+    {
+        return p{{ apidef.Prefix }};
+    }
+
+    public bool {{ apidef.Prefix }}GetScreenIndicator()
+    {
+        return ScreenIndicator;
+    }
+
+    public void {{ apidef.Prefix }}SetScreenIndicator(bool scrind)
+    {
+        ScreenIndicator = scrind;
+    }
+
+    public bool {{ apidef.Prefix }}GetExceptionIndicator()
+    {
+         return ExceptionIndicator;
+    }
+
+    public void {{ apidef.Prefix }}SetExceptionIndicator(bool excind)
+    {
+        ExceptionIndicator = excind;
+    }
+
+    public bool {{ apidef.Prefix }}GetExitIndicator()
+    {
+        return ExitIndicator;
+    }
+
+    public void {{ apidef.Prefix }}SetExitIndicator(bool extind)
+    {
+        ExitIndicator = extind;
+    }
+
+    public {{ apidef.Prefix }}ErrorCallback_t {{ apidef.Prefix }}GetErrorCallback()
+    {
+        return ErrorCallBack;
+    }
+
+    public void {{ apidef.Prefix }}SetErrorCallback({{ apidef.Prefix }}ErrorCallback_t func)
+    {
+        ErrorCallBack = func;
+    }
+
+    public int {{ apidef.Prefix }}GetAPIErrorCount()
+    {
+        return APIErrorCount;
+    }
+
+    public void {{ apidef.Prefix }}SetAPIErrorCount(int ecnt)
+    {
+        APIErrorCount = ecnt;
+    }
+
+    private static void {{ apidef.Prefix }}ErrorHandling(string Msg)
+    {
+        APIErrorCount++;
+        if (ScreenIndicator) Console.WriteLine(Msg);
+        if (ErrorCallBack != null)
+            if (ErrorCallBack(APIErrorCount, Msg)) Environment.Exit(123);
+        if (ExceptionIndicator) throw new ArgumentNullException();
+        if (ExitIndicator) Environment.Exit(123);
+    }
+
+    private void ConvertC2CS(byte[] b,ref string s)
+    {
+        int i;
+        s = "";
+        i = 0;
+        while (b[i] != 0)
+        {
+            s = s + (char)(b[i]);
+            i = i + 1;
+        }
+    }
+
+    private int {{ apidef.prexfix.lower() }}apiversion(int api, ref string msg, ref int cl)
+    {
+       int rc_{{ apidef.prexfix.lower() }}apiversion;
+       StringBuilder cpy_msg = new StringBuilder(gamsglobals.str_len);
+       rc_{{ apidef.prexfix.lower() }}apiversion = dll_{{ apidef.prexfix.lower() }}apiversion(api, cpy_msg, ref cl);
+       msg = cpy_msg.ToString();
+       return rc_{{ apidef.prexfix.lower() }}apiversion;
+    }
+
+    private int {{ apidef.prexfix.lower() }}check(string ep, int nargs, int[] s, ref string msg)
+    {
+       int rc_{{ apidef.prexfix.lower() }}check;
+       StringBuilder cpy_msg = new StringBuilder(gamsglobals.str_len);
+       rc_{{ apidef.prexfix.lower() }}check = dll_{{ apidef.prexfix.lower() }}check(ep, nargs, s, cpy_msg);
+       msg = cpy_msg.ToString();
+       return rc_{{ apidef.prexfix.lower() }}check;
+    }
+
+{%- if apidef.ulp.elements.shape[0] > 0 and apidef.Prefix in apidef.ulp.elements['prefix'].tolist() %}
+
+    public void {{ apidef.Prefix }}SetLoadPath(string s)
+    {
+       dll_{{ apidef.Prefix }}SetLoadPath(s);
+    }
+
+    public void {{ apidef.Prefix }}GetLoadPath(ref string s)
+    {
+       byte[] cpy_s = new byte[gamsglobals.str_len];
+       dll_{{ apidef.Prefix }}GetLoadPath(ref cpy_s[0]);
+       ConvertC2CS(cpy_s,ref s);
+    }
+{%- endif %}
+
+
+{%- macro functionDescription(name, description) %}
+  {%- if description | length > 0 %}
+    /// <summary>
+    {%- set desc = description.split('\n') -%}
+    {%- for d in desc if d is defined and d | length > 0  %}
+    /// {{ d }}
+    {%- endfor %}
+    /// </summary>
+    {%- for fkey,fvalue in apidef.f.elements[apidef.f.elements['name']==name].iterrows()
+        if apidef.f.elements.shape[0] > 0 %}
+        {%- if fvalue['pos']=='0' -%} 
+            {%- if fvalue['text'] | length > 0 %}
+    /// <returns>{{ fvalue['text'] }}</returns>
+            {%- endif %}
+        {%- else                                     %}
+    /// <param name="{{ fvalue['arg'] }}">{{ fvalue['text'] }}</param>
+        {%- endif -%}
+    {%- endfor -%} {#- f -#}
+  {%- endif -%}
+{%- endmacro -%}
+
+{#- write all functions (public, not static), special treatment for functions containing var strings and/or arrays -#}
+{%- for key,value in apidef.tfunc.elements.iterrows() -%}
+    {{ functionDescription(value['name'], value['text']) }}
+    public 
+    {%- if value['type'] != 'funcptr' %}
+        {%- if value['type'] in datadef.tapc.elements['ta'].tolist() %} string
+        {%- else                                                     %} {{ csType(value['type']) }}
+        {%- endif -%}
+    {%- else                          %}
+            {%- for fmkey,fmvalue in apidef.FuncMap.elements[apidef.FuncMap.elements['def']==value['name']].iterrows()
+                if apidef.FuncMap.elements.shape[0] > 0 %} {{ fmvalue['name'] }}
+            {%- endfor -%}
+    {%- endif  %} {{ value['name'] }}(
+    {%- set f = apidef.f.elements[apidef.f.elements['name']==value['name']] -%}
+    {%- set counter = namespace(argpos=0)                                   -%}
+    {%- for fkey,fvalue in f[f['pos'].isin(tpp)].iterrows() if f.shape[0] > 0 -%}
+        {%- if counter.argpos > 0 -%} , {%- endif -%}
+        {%- if fvalue['type'] != 'funcptr' -%}
+           {%- if fvalue['type'] in ['pda','plia','vii','vrv','vsva','pc','osi']            -%}
+{#- not necessary, but looks more like "original" C# -#} ref {{ csType(fvalue['type']) }} {{ fvalue['arg'] }}
+           {%- elif fvalue['type'] in value['type'] in datadef.taar.elements['ta'].tolist() -%}
+{{ csCall(fvalue['type']) }}{{ csType(fvalue['type']) }} {{ fvalue['arg'] }}
+           {%- else                                                                         -%}
+{{ csCall(fvalue['type']) }}{{ csType(fvalue['type']) }} {{ fvalue['arg'] }}
+           {%- endif -%}
+           {%- set counter.argpos = counter.argpos + 1 -%}
+        {%- else                         -%}
+          {%-if apidef.FuncMap.elements.shape[0] > 0 -%}
+            {%- set fmcounter = namespace(argpos=0) -%}
+            {%- set funcmap   = apidef.FuncMap.elements[apidef.FuncMap.elements['fpos'] == fvalue['pos']] -%}
+            {%- for fmkey,fmvalue in funcmap[funcmap['def']==fvalue['name']].iterrows()
+                if funcmap.shape[0] > 0 -%}
+                {%- if fmcounter.argpos > 0 -%} , {% endif -%} {{ fmvalue['name'] }} {{ fvalue['arg'] }} 
+                {%- set fmcounter.argpos = fmcounter.argpos + 1 -%}
+            {%- endfor -%}
+            {%- set counter.argpos = counter.argpos + fmcounter.argpos -%}
+          {%- endif -%}
+        {%- endif -%}
+    {% endfor -%} {#- f -#}
+)
+    {
+    {%- if (apidef.fost.elements.shape[0] > 0 and value['name'] in apidef.fost.elements['name'].tolist()) or
+           (apidef.fvbool.elements.shape[0] > 0 and value['name'] in apidef.fvbool.elements['name'].tolist()) -%}
+        {%- if value['type'] != 'void' %}
+       {# -#}
+            {%- if value['type'] != 'funcptr' -%} 
+                {%- if value['type'] in datadef.tapc.elements['ta'].tolist() -%} string
+                {%- elif value['type'] == 'bool'                             -%} int
+                {%- else                                                     -%} {{ csType(value['type']) }}
+                {%- endif -%}
+            {%- else                           -%}
+                {%- for fmkey,fmvalue in apidef.FuncMap.elements[apidef.FuncMap.elements['def']==fvalue['name']].iterrows()
+                    if apidef.FuncMap.elements.shape[0] > 0 -%} {{ fmvalue['name'] }}
+                {%- endfor -%}
+            {%- endif %} rc_{{ value['name'] }}
+            {%- if value['type'] == 'oss' %} = ""; {%- endif -%}
+;
+        {%- endif -%}
+    {%- endif -%}
+    {%- if value['type'] == 'oss' %}
+       StringBuilder sst_result = new StringBuilder(gamsglobals.str_len);
+    {%- endif -%}
+    {%- for fkey,fvalue in f[f['pos'].isin(tpp)].iterrows() if f.shape[0] > 0 -%}
+        {%- if fvalue['type'] in ['oss','xss'] %}
+       StringBuilder cpy_{{ fvalue['arg'] }} = new StringBuilder(gamsglobals.str_len);
+        {%- elif fvalue['type'] == 'osi'       %}
+       byte[,] cpy_{{ fvalue['arg'] }} = new byte[gamsglobals.maxdim,gamsglobals.str_len];
+       byte[] cpy_{{ fvalue['arg'] }}1 = new byte[gamsglobals.str_len];
+       int i_{{ fvalue['arg'] }};
+            {%- if fvalue['type'] == 'osi' %}
+       int sidim_{{ fvalue['arg'] }};
+            {%- endif -%}
+        {%- endif -%}
+    {%- endfor -%}
+    {%- for fkey,fvalue in f[f['pos'].isin(tpp)].iterrows() if f.shape[0] > 0 -%}
+        {%- if fvalue['type'] in ['bool','vbool'] %}
+       int ib_{{ fvalue['arg'] }} = 0;
+        {%- endif -%}
+    {%- endfor -%}
+    {%- for fkey,fvalue in f[f['pos'].isin(tpp)].iterrows() if f.shape[0] > 0 -%}
+        {%- if fvalue['type'] in ['bool','vbool'] %}
+       if ({{ fvalue['arg'] }}) ib_{{ fvalue['arg'] }} = 1;
+        {%- endif -%}
+    {%- endfor %}
+       {# -#}
+    {%- if value['type'] not in ['void','oss'] -%}
+        {%- if (apidef.fost.elements.shape[0] > 0 and value['name'] in apidef.fost.elements['name'].tolist()) or
+               (apidef.fvbool.elements.shape[0] > 0 and value['name'] in apidef.fvbool.elements['name'].tolist()) -%}
+rc_{{ value['name'] }} = {# -#}
+        {%- else  -%}
+return {# -#}
+        {%- endif -%}
+    {%- endif -%} dll_{{ value['name'] }}(p{{ apidef.Prefix }}
+    {%- for fkey,fvalue in f[f['pos'].isin(tpp)].iterrows() if f.shape[0] > 0 -%}
+,
+        {%- if fvalue['type'] not in ['oss','xss'] -%} {{ csCall(fvalue['type']) }}
+        {%- endif -%}
+        {%- if fvalue['type'] in datadef.tass.elements['ta'].tolist()   -%}
+           {%- if fvalue['type'] == 'oss'   -%} cpy_{{ fvalue['arg'] }}
+           {%- elif fvalue['type'] == 'xss' -%} cpy_{{ fvalue['arg'] }},256
+           {%- elif fvalue['type'] == 'osi' -%} cpy_{{ fvalue['arg'] }}
+           {%- else                         -%} {{ fvalue['arg'] }}
+           {%- endif -%}
+        {%- elif fvalue['type'] in datadef.taar.elements['ta'].tolist() -%} {{ fvalue['arg'] }}
+        {%- elif fvalue['type'] in ['bool','vbool']                     -%} ib_{{ fvalue['arg'] }}
+        {%- else                                                        -%} {{ fvalue['arg'] }}
+        {%- endif -%}
+    {%- endfor -%}
+    {%- if value['type'] == 'oss' -%} ,sst_result {%- endif -%}
+)
+    {%- if (apidef.fost.elements.shape[0] <= 0 or value['name'] not in apidef.fost.elements['name'].tolist()) and
+           (apidef.fvbool.elements.shape[0] <= 0 or value['name'] not in apidef.fvbool.elements['name'].tolist()) -%}
+        {%- if value['type'] == 'bool' %} != 0  {%- endif -%}
+    {%- endif -%}
+;
+    {%- for fkey,fvalue in f[f['pos'].isin(tpp)].iterrows() if f.shape[0] > 0 -%}
+        {%- if fvalue['type'] in ['oss','xss'] %}
+       {{ fvalue['arg'] }} = cpy_{{ fvalue['arg'] }}.ToString();
+        {%- elif fvalue['type'] == 'osi'       %}
+            {%- if MaxDimStyle == ''       %}
+       sidim_{{ fvalue['arg'] }} = gamsglobals.maxdim;
+            {%- elif MaxDimStyle == 'gdx'  %}
+                {%- if apidef.callSymbolDim.elements.shape[0] > 0 and 
+                       value['name'] in apidef.callSymbolDim.elements['name'].tolist()  %}
+       sidim_{{ fvalue['arg'] }} = dll_gdxSymbolDim(p{{ apidef.Prefix }}, SyNr);
+                {%- else                                                                %}
+       sidim_{{ fvalue['arg'] }} = dll_gdxCurrentDim(p{{ apidef.Prefix }});
+                {%- endif %}
+       if(rc_{{ value['name'] }} != 0)
+            {%- elif MaxDimStyle == 'gmd'  -%}
+                {%- if apidef.useADim.elements.shape[0] > 0 and 
+                       value['name'] in  apidef.useADim.elements['name'].tolist() %}
+       sidim_{{ fvalue['arg'] }} = aDim;
+                {%- else                                                         %}
+       sidim_{{ fvalue['arg'] }} = 0; if (dll_gmdSymbolDim(pgmd, symPtr, ref sidim_{{ fvalue['arg'] }}) == 0) return false;
+                {%- endif -%}
+            {%- endif %}
+       for (i_{{ fvalue['arg'] }} = 0; i_{{ fvalue['arg'] }} < sidim_{{ fvalue['arg'] }}; i_{{ fvalue['arg'] }}++)
+       {
+          System.Buffer.BlockCopy(cpy_{{ fvalue['arg'] }}, i_{{ fvalue['arg'] }}*gamsglobals.str_len, cpy_{{ fvalue['arg'] }}1, 0, gamsglobals.str_len);
+          {{ fvalue['arg'] }}[i_{{ fvalue['arg'] }}] = System.Text.Encoding.Default.GetString(cpy_{{ fvalue['arg'] }}1).Split('\0')[0];
+       }
+        {%- endif -%}
+    {%- endfor -%}
+    {%- for fkey,fvalue in f[f['pos'].isin(tpp)].iterrows() if f.shape[0] > 0 -%}
+        {%- if fvalue['type'] == 'vbool' %}
+       {{ fvalue['arg'] }} = ib_{{ fvalue['arg'] }} != 0;
+        {%- endif -%}
+    {%- endfor %}
+    {%- if value['type'] == 'oss' %}
+       rc_{{ value['name'] }} = sst_result.ToString();
+    {%- endif -%}
+    {%- if (apidef.fost.elements.shape[0] > 0 and value['name'] in apidef.fost.elements['name'].tolist()) or
+           (apidef.fvbool.elements.shape[0] > 0 and value['name'] in apidef.fvbool.elements['name'].tolist()) -%}
+        {%- if value['type'] != 'void' -%}
+            {%- if value['type'] != 'bool' %}
+       return rc_{{ value['name'] }};
+            {%- else                        %}
+       return rc_{{ value['name'] }} != 0;
+            {%- endif -%}
+        {%- endif -%}
+    {%- endif %}
+    }
+{%- endfor -%} {#- tfunc #}
+
+{%- macro propertiesDescription(name, description) %}
+  {%- if description | length > 0 %}
+    /// <summary>
+    {%- set desc = description.split('\n') -%}
+    {%- for d in desc if d is defined and d | length > 0  %}
+    /// {{ d }}
+    {%- endfor %}
+    /// </summary>
+  {%- endif %}
+{%- endmacro -%}
+
+{#- write properties #}
+{% for key,value in apidef.pn.elements.iterrows() -%}
+    {{ propertiesDescription(value['name'],value['text']) }}
+    public 
+    {%- if value['pactions']=='r' -%}
+        {%- if value['type'] != 'funcptr' %}
+            {%- if value['type'] in datadef.tapc.elements['ta'].tolist() %} string
+            {%- else                                                     %} {{ csType(value['type']) }}
+            {%- endif %} {{ value['name'] }}()
+        {%- else                          %}
+            {%- for fmkey,fmvalue in apidef.FuncMap.elements[apidef.FuncMap.elements['def']==value['name']].iterrows()
+                if apidef.FuncMap.elements.shape[0] > 0 -%} {{ fmvalue['name'] }}
+                {%- if fmvalue['fpos']=='p' %} {{ fmvalue['name'] }} {{ value['name'] }}()  {%- endif -%}
+           {%- endfor -%}
+        {%- endif -%}
+    {%- else                      -%}
+        {%- if value['type'] != 'funcptr' %} void {{ value['name'] }}Set(
+            {%- if value['type'] != 'oss' -%} {{ csCall(value['type']) }}
+            {%- endif -%} {{ csType(value['type']) }} x)
+        {%- else                          %}
+            {%- for fmkey,fmvalue in apidef.FuncMap.elements[apidef.FuncMap.elements['def']==value['name']].iterrows()
+                if apidef.FuncMap.elements.shape[0] > 0 -%} {{ fmvalue['name'] }}
+                {%- if fmvalue['fpos']=='p' -%} void {{ value['name'] }}Set({{ fmvalue['name'] }} x) {%- endif -%}
+           {%- endfor -%}
+        {%- endif  -%}
+    {%- endif %}
+    {
+    {%- if value['pactions']=='r' -%}
+        {%- if value['type'] == 'oss'    %}
+       string tmp_result = "";
+       StringBuilder sst_result = new StringBuilder(gamsglobals.str_len);
+       dll_{{ value['name'] }}(p{{ apidef.Prefix }}, sst_result);
+       tmp_result = sst_result.ToString();
+       return tmp_result;
+        {%- elif value['type'] == 'bool' %}
+       return dll_{{ value['name'] }}(p{{ apidef.Prefix }}) != 0;
+        {%- else                         %}
+       return dll_{{ value['name'] }}(p{{ apidef.Prefix }});
+        {%- endif  -%}
+    {%- else                      -%}
+        {%- if value['type'] == 'bool' %}
+       int ib_x = 0;
+       if (x) ib_x = 1;
+       dll_{{ value['name'] }}Set(p{{ apidef.Prefix }}, ib_x);
+        {%- else                       %}
+       dll_{{ value['name'] }}Set(p{{ apidef.Prefix }},
+            {%- if value['type'] != 'oss' -%} {{ csCall(value['type']) }} {%- endif %} x);
+        {%- endif  -%}
+    {%- endif %}
+    }
+{%- endfor -%} {#- pn #}
+
+}

@@ -1,0 +1,75 @@
+{%- extends "cbase.template.j2" -%}
+
+{%- block header %}
+ * GAMS - Loading mechanism for GAMS Expert-Level APIs
+{%- endblock -%}
+
+{%- block content -%}
+{%- set tpp  = datadef.tpp.elements['tp'].tolist()    -%}
+{%- set fval = datadef.FVal.elements['ta'].tolist()   -%}
+{%- set ptrf = apidef.PFtrF.elements['name'].tolist() -%}
+{%- for key,value in apidef.f.elements[apidef.f.elements['pos'].isin(tpp)].iterrows()
+    if value['type'] == 'funcptr' -%}
+    {%- set funcmap = apidef.FuncMap.elements[apidef.FuncMap.elements['def']==value['name']] -%}
+    {%- for fmkey,fmvalue in funcmap[funcmap['fpos']==value['pos']].iterrows()
+        if fmvalue['name'] in ptrf -%}
+        {%- for tfkey,tfvalue in apidef.tPtrFunc.elements[apidef.tPtrFunc.elements['name']==fmvalue['name']].iterrows() %}
+
+{{ CType(tfvalue['type']) }} {{ apidef.Prefix.upper() }}_CALLCONV {{ value['name'] }}_{{ value['arg'] }}_FC({{ dobject(apidef.Prefix) }}Rec_t *{{ dobject(apidef.Prefix) }},{{prettyWhiteSpace(1)}}
+           {%- set counter = namespace(argpos = 1) -%}
+           {%- set ptrf    = apidef.PtrF.elements[apidef.PtrF.elements['apos'].isin(tpp)] -%}
+           {%- set ptrftpp = ptrf[ptrf['name']==tfvalue['name']]                          -%}
+           {%- for fkey,fvalue in ptrftpp.iterrows() if ptrf.shape[0] > 0 -%}
+{{ CTMod(fvalue['type']) }}{{ CType(fvalue['type']) }} {{ CCall(fvalue['type']) }}{{ fvalue['arg'] }}{{ CArraySuf(fvalue['type']) }}
+               {%- if counter.argpos < ptrftpp.shape[0] -%}, {% endif -%}
+               {%- set counter.argpos = counter.argpos + 1 -%}
+           {%- endfor -%}
+)
+{
+           {%- for fkey,fvalue in ptrftpp.iterrows() if ptrf.shape[0] > 0 and fvalue['type'] == 'ptr' %}
+  u64_t local_{{ fvalue['arg'] }};
+           {%- endfor %}
+  if({{ dobject(apidef.Prefix) }}->{{ value['name'] }}_{{ value['arg'] }}_CallByRef)
+           {%- if ptrf.shape[0] > 0 and ptrftpp[ptrftpp['type']=='ptr'].shape[0] > 0 %}
+  {
+           {%- endif -%}
+           {%- for fkey,fvalue in ptrftpp.iterrows() if ptrf.shape[0] > 0 and fvalue['type'] == 'ptr' %}
+    local_{{ fvalue['arg'] }}.i = 0;
+    local_{{ fvalue['arg'] }}.p = {{ fvalue['arg'] }};
+           {%- endfor %}
+    (({{ fmvalue['name'] }}_F_t) {{ dobject(apidef.Prefix) }}->{{ value['name'] }}_{{ value['arg'] }})(
+           {%- set counter = namespace(argpos = 1) -%}
+           {%- for fkey,fvalue in ptrftpp.iterrows() if ptrf.shape[0] > 0 -%}
+               {%- if fvalue['type'] in fval or fvalue['type']=='c' -%} & {%- endif -%}
+               {%- if fvalue['type'] == 'ptr' -%} local_{{ fvalue['arg'] }}.i
+               {%- else                       -%} {{ fvalue['arg'] }}
+               {%- endif -%}
+               {%- if counter.argpos < ptrftpp.shape[0] -%}, {% endif -%}
+               {%- set counter.argpos = counter.argpos + 1 -%}
+           {%- endfor -%}
+           {%- set typeInteger = ['c','cpc','css','csi']                   -%}
+           {%- set ptrftppint = ptrftpp[ptrftpp['type'].isin(typeInteger)] -%}
+           {%- for fkey,fvalue in ptrftppint.iterrows() -%}
+               {%- if fvalue['type'] == 'c'               -%} , 1
+               {%- elif fvalue['type'] == 'csi'           -%} , 255
+               {%- elif fvalue['type'] not in ['c','csi'] -%} , strlen({{ fvalue['arg'] }})
+               {%- endif -%}
+           {%- endfor -%}
+);
+           {%- if ptrf.shape[0] > 0 and ptrftpp[ptrftpp['type']=='ptr'].shape[0] > 0 %}
+  }
+           {%- endif %}
+  else
+    {{ dobject(apidef.Prefix) }}->{{ value['name'] }}_{{ value['arg'] }}(
+           {%- set counter = namespace(argpos = 1) -%}
+           {%- for fkey,fvalue in ptrftpp.iterrows() if ptrf.shape[0] > 0 -%}
+{{ fvalue['arg'] }}
+               {%- if counter.argpos < ptrftpp.shape[0] -%}, {% endif -%}
+               {%- set counter.argpos = counter.argpos + 1 -%}
+           {%- endfor -%}
+);
+}
+        {%- endfor %}
+    {%- endfor %}
+{%- endfor %}
+{% endblock -%}

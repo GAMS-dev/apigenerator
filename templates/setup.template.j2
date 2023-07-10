@@ -1,0 +1,69 @@
+{%- extends "pybase.template.j2" -%}
+
+{%- block content %}
+# This file was generated.
+
+from setuptools import Extension, setup, find_packages
+import numpy as np
+import os
+import sys
+
+core_extensions = [
+    Extension(
+        name=f'gams.core.{api[:3]}._{api}cc',
+        sources=[
+            os.path.join('src', 'gams', 'core', api[:3], f'{api}cc_wrap.c'),
+            os.path.join('src', 'gams', 'core', api[:3], f'{api}cc.c')
+        ],
+        define_macros=[
+            (f'PYPREFIX{api[:3].upper()}', None),
+            ('_CRT_SECURE_NO_WARNINGS', None)
+        ],
+        include_dirs=[os.path.join('src', 'gams', 'core')]
+    ) for api in ['gdx', 'gmd', 'opt', 'idx', 'dctm', 'gmom', 'gevm', 'cfgm']
+]
+
+py_version = '.'.join(sys.version.split('.')[:2])
+numpy_version = '>=' + '.'.join(np.__version__.split('.')[:2])
+extras = {
+    'connect':  ['pandas', 'numpy'+numpy_version, 'pyyaml', 'openpyxl', 'sqlalchemy<2', 'cerberus', 'pyodbc', 'psycopg2-binary', 'pymysql', 'pymssql'],
+    'control':  ['urllib3'],
+    'core':     ['ply'],
+    'engine':   ['python_dateutil', 'urllib3'],
+    'magic':    ['ipython', 'pandas', 'numpy'+numpy_version],
+    'numpy':    ['numpy'+numpy_version],
+    'tools':    ['pandas', 'numpy'+numpy_version],
+    'transfer': ['pandas', 'numpy'+numpy_version, 'scipy']
+}
+extras['all'] = list(set([x for k,v in extras.items() for x in v]))
+
+setup(
+    name="GAMS",
+    version="{{ api['SysRelease'] }}.{{ api['SysSubRel'] }}.{{ api['SysSubRelGold'] }}",
+    description="GAMS Python API",
+    author="GAMS Development Corporation",
+    packages=find_packages(where="src"),
+    package_dir={"": "src"},
+    license="MIT",
+    python_requires=f"=={'.'.join(sys.version.split('.')[:2]+['*'])}",
+    extras_require=extras,
+    include_package_data=True,
+    exclude_package_data={'':['*.h', '*.c']},
+    ext_modules=[
+        Extension(
+            name="gams.numpy._gams2numpy",
+            sources=[
+                os.path.join('src', 'gams', 'numpy', '_gams2numpy.c'),
+                os.path.join('src', 'gams', 'core', 'gdx', 'gdxcc.c'),
+                os.path.join('src', 'gams', 'core', 'gmd', 'gmdcc.c')
+            ],
+            include_dirs=[
+                np.get_include(),
+                os.path.join('src', 'gams', 'core', 'gdx'),
+                os.path.join('src', 'gams', 'core', 'gmd'),
+                os.path.join('src', 'gams', 'core')
+            ]
+        ),
+    ] + core_extensions,
+)
+{% endblock -%}

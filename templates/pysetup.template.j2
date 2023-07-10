@@ -1,0 +1,22 @@
+{%- extends "pybase.template.j2" -%}
+
+{%- block content %}
+# This type of setup.py file is not distributed anymore but used in the apiwrapper test 
+
+from setuptools import setup, Extension
+
+setup(
+    name = '{{ apidef.preprefix }}{{ apidef.Prefix }}{{ apidef.premulti }}cc',
+    version = '{{ apidef.APIVersion }}',
+    ext_modules = [
+        Extension(
+            '_{{ apidef.preprefix }}{{ apidef.Prefix }}{{ apidef.premulti }}cc',
+            sources=['{{ apidef.preprefix }}{{ apidef.Prefix }}{{ apidef.premulti }}cc_wrap.c', '../../C/api/{{ apidef.preprefix }}{{ apidef.Prefix }}{{ apidef.premulti }}cc.c'],
+            define_macros=[('PYPREFIX{{ apidef.Prefix.upper() }}', None), ('_CRT_SECURE_NO_WARNINGS', None)],
+            include_dirs=['../../C/api']
+        )
+    ],
+    py_modules= ["{{ apidef.preprefix }}{{ apidef.Prefix }}{{ apidef.premulti }}cc"],
+)
+
+{% endblock -%}

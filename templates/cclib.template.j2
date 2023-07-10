@@ -1,0 +1,1104 @@
+{%- extends "cbase.template.j2" -%}
+
+{%- macro CallByRef(apidef, dobj, value) -%}
+   {%- set fe = apidef.f.elements[apidef.f.elements['name'] == value] -%}
+   {%- if not apidef.NOFORTRANCB -%}
+      {%- set tpp = datadef.tpp.elements['tp'].tolist()                                 -%}
+      {%- set fetpp = fe[fe['pos'].isin(tpp)]                                           -%}
+      {%- set FuncMap = apidef.FuncMap.elements[apidef.FuncMap.elements['def']==value] -%}
+      {%- for fkey,fvalue in fetpp[fetpp['type']=='funcptr'].iterrows() if FuncMap.shape[0] > 0 and apidef.PFtrF.elements.shape[0] > 0 -%}
+          {%- set pftrf = apidef.PFtrF.elements['name'].tolist()                                     -%}
+          {%- set FuncMapPtrf = apidef.FuncMap.elements[apidef.FuncMap.elements['name'].isin(pftrf)] -%}
+          {%- if FuncMapPtrf.shape[0] > 0 %}
+
+         {%- if apidef.Prefix == 'gdx' -%}
+               setCallByRef({{ dobj }}, "{{ fvalue['name'] }}_{{ fvalue['arg'] }}", 0);
+         {%- else -%}
+            {{ dobj }}->{{ fvalue['name'] }}_{{ fvalue['arg'] }}_CallByRef = 0;
+         {%- endif -%}
+
+  
+          {%- endif -%}
+      {%- endfor -%}
+   {%- endif -%} {#- not apidef.NOFORTRANCB -#}
+{%- endmacro -%}
+
+{%- macro CFunctionDeclaration(prefix, type, name, dobj) -%}
+{{ prefix }}_API
+      {%- if type != 'funcptr' %} {{ CType(type) }}{{ CCall(type) }}
+      {%- else -%}
+         {%- for fmkey,fmvalue in apidef.FuncMap.elements[apidef.FuncMap.elements['def'] == name].iterrows() %} {{ fmvalue['name'] }}_t
+         {%- endfor -%} {#- apidef.FuncMap -#}
+      {%- endif %} {{ prefix }}_CALLCONV C__{{ name}}({{ dobj }}Rec_t *{{ dobj }}
+      {%- set f = apidef.f.elements[apidef.f.elements['name']==name]-%}
+      {%- set tpp = datadef.tpp.elements['tp'] -%}
+      {%- for fkey,fvalue in f[f['pos'].isin(tpp)].iterrows() -%}
+, {{ CTMod(fvalue['type']) }}
+        {%- if fvalue['type'] != 'funcptr' -%} {{ CType(fvalue['type']) }}
+        {%- elif apidef.FuncMap.elements.shape[0] > 0 -%}
+            {%- set funcmap   = apidef.FuncMap.elements[apidef.FuncMap.elements['fpos'] == fvalue['pos']] -%}
+            {%- for fmkey,fmvalue in funcmap[funcmap['def']==name].iterrows()
+                if funcmap.shape[0] > 0 -%}
+ {{ fmvalue['name'] }}_t
+           {%- endfor -%} {#- apidef.FuncMap -#}
+        {%- endif %} {{ CCall(fvalue['type']) }}{{ fvalue['arg'] }}{{ CArraySuf(fvalue['type']) }}
+        {%- if fvalue['type'] == 'xss' -%}
+           {%- for k in f[f['type']=='int'].groupby('type').groups.keys() -%}
+, {{ CTMod(k) }}{{ CType(k)}} {{ CCall(k) }}{{ fvalue['arg'] }}_i{{ CArraySuf(k) }}
+           {%- endfor -%}
+       {%- endif -%}
+     {%- endfor -%} {#- f -#}
+)
+{%- endmacro -%}
+
+{%- macro DFunctionDeclaration(prefix, type, name, dobj) -%}
+{{ prefix }}_API
+   {%- if type != 'funcptr' %} {{ CType(type) }}{{ CCall(type) }}
+   {%- else -%}
+      {%- for fmkey,fmvalue in apidef.FuncMap.elements[apidef.FuncMap.elements['enn']==name].iterrows() %} {{ fmvalue['en'] }}_t
+      {%- endfor -%} {#- apidef.FuncMap -#}
+   {%- endif %} {{ prefix }}_CALLCONV D__{{ name }}({{ dobj }}Rec_t *{{ dobj }}
+   {%- set f = apidef.f.elements[apidef.f.elements['name']==name]-%}
+   {%- set tpp = datadef.tpp.elements['tp'] -%}
+   {%- for fkey,fvalue in f[f['pos'].isin(tpp)].iterrows() -%}
+      {%- if fvalue['type'] in ['csi', 'osi'] %}, {{ CTMod(fvalue['type']) }}{{ CType(fvalue['type']) }} *{{ fvalue['arg'] }}
+      {%- else -%}, {{ CTMod(fvalue['type']) }}
+         {%- if fvalue['type'] != 'funcptr' -%} {{ CType(fvalue['type']) }}
+         {%- elif apidef.FuncMap.elements.shape[0] > 0 -%}
+            {%- set funcmap   = apidef.FuncMap.elements[apidef.FuncMap.elements['fpos'] == fvalue['pos']] -%}
+            {%- for fmkey,fmvalue in funcmap[funcmap['def']==name].iterrows()
+                if funcmap.shape[0] > 0 -%}
+ {{ fmvalue['name'] }}_t
+            {%- endfor -%} {#- apidef.FuncMap #}
+         {%- endif %} {{ CCall(fvalue['type']) }}{{ fvalue['arg'] }}{{ CArraySuf(fvalue['type']) }}
+      {%- endif %}
+   {%- endfor -%} {#-  f[f['pos'].isin(tpp)] -#}
+)
+{%- endmacro -%}
+
+{%- macro NFunctionDeclaration(prefix, type, name, dobj, entmp) -%}
+{{ prefix }}_API
+   {%- if type != 'funcptr' %} {{ CType(type) }}{{ CCall(type) }}
+   {%- else -%}
+      {%- for fmkey,fmvalue in apidef.FuncMap.elements[apidef.FuncMap.elements['def'] == name].iterrows() -%}
+ {{ fmvalue['name'] }}_t
+      {%- endfor -%} {#- apidef.FuncMap -#}
+   {%- endif %} {{ prefix }}_CALLCONV N__{{ name }}({{ dobj }}Rec_t *{{ dobj }}
+   {%- set f = apidef.f.elements[apidef.f.elements['name']==name]-%}
+   {%- set tpp = datadef.tpp.elements['tp'] -%}
+   {%- for fkey,fvalue in f[f['pos'].isin(tpp)].iterrows() -%}
+      {%- if fvalue['type'] == 'csi'   -%} , {{ CTMod(fvalue['type']) }}{{ CType(fvalue['type']) }} *{{ fvalue['arg']}}
+      {%- elif fvalue['type'] == 'osi' -%} , gdxStrIndex_t {{ fvalue['arg']}}
+      {%- else                         -%} , {{ CTMod(fvalue['type']) }}
+         {%- if fvalue['type'] != 'funcptr' %} {{ CType(fvalue['type']) }}
+         {%- else                          -%} , {{ CTMod(fvalue['type']) }}
+            {%- for fmkey,fmvalue in apidef.FuncMap.elements[apidef.FuncMap.elements['def'] == name].iterrows() -%}
+ {{ fmvalue['name'] }}_t
+            {%- endfor -%} {#- apidef.FuncMap -#}
+         {%- endif %} {{ CCall(fvalue['type']) }}{{ fvalue['arg'] }}{{ CArraySuf(fvalue['type']) }}
+      {%- endif -%}
+   {%- endfor -%} {#- f -#}
+)
+{%- endmacro -%}
+
+{%- macro FFunctionDeclaration(prefix, type, name, dobj) -%}
+{{ prefix }}_API
+        {%- set funcmap = apidef.FuncMap.elements[apidef.FuncMap.elements['def'] == name] -%}
+        {%- if type != 'funcptr' %} {{ CType(type) }}{{ CCall(type) }}
+        {%- else -%}
+           {%- for fmkey,fmvalue in funcmap.iterrows() %} {{ fmvalue['name'] }}_F_t
+           {%- endfor -%} {#- apidef.FuncMap -#}
+        {%- endif %} {{ prefix }}_CALLCONV F__{{ name}}({{ dobj }}Rec_t *{{ dobj }}
+        {%- set f = apidef.f.elements[apidef.f.elements['name']==name] -%}
+        {%- set tpp = datadef.tpp.elements['tp']                           -%}
+        {%- for fkey,fvalue in f[f['pos'].isin(tpp)].iterrows() -%}
+, {{ CTMod(fvalue['type']) }}
+        {%- if fvalue['type'] != 'funcptr' -%} {{ CType(fvalue['type']) }}
+        {%- else -%}
+           {%- set funcmap = apidef.FuncMap.elements[apidef.FuncMap.elements['def'] == fvalue['name']]  -%}
+           {%- for fmkey,fmvalue in funcmap.iterrows() -%}
+ {{ fmvalue['name'] }}_F_t
+           {%- endfor -%} {#- apidef.FuncMap #}
+        {%- endif %} {{ CCall(fvalue['type']) }}{{ fvalue['arg'] }}{{ CArraySuf(fvalue['type']) }}
+        {%- if fvalue['type'] == 'xss' -%}
+, {{ CTMod('int') }}{{ CType('int') }} {{ CCall('int') }}{{ fvalue['arg'] }}_i{{ CArraySuf(k) }}
+        {%- endif -%}
+      {%- endfor -%} {#- f -#}
+)
+{%- endmacro -%}
+
+{%- macro CPropertyDeclaration(prefix, type, name, action, dobj) -%}
+{{ prefix }}_API{{ prettyWhiteSpace(1) }}
+         {%- if action == 'r' %}
+           {%- if type != 'funcptr' -%}
+{{ CType(type) }} {{ CCall(type) }} {{ prefix }}_CALLCONV C__{{ name}}({{ dobj }}Rec_t *{{ dobj }})
+           {%- else                          -%}
+              {%- for fmkey,fmvalue in funcmap[funcmap['fpos']=='p'].iterrows() -%}
+{{ fmvalue['name'] }}_t) {{ prefix }}_CALLCONV C__{{ name}}({{ dobj }}Rec_t *{{ dobj }})
+              {%- endfor -%}
+           {%- endif -%}
+         {%- else                       %}
+           {%- if type != 'funcptr' -%}
+void {{ prefix }}_CALLCONV C__{{ name}}Set({{ dobj }}Rec_t *{{ dobj }}, {{ CType(type) }} {{ CCall(type) }}x)
+           {%- else                          -%}
+              {%- for fmkey,fmvalue in funcmap[funcmap['fpos']=='p'].iterrows() -%}
+void {{ prefix }}_CALLCONV C__{{ name}}Set({{ dobj }}Rec_t *{{ dobj }}, {{ fmvalue['name'] }}_t x)
+              {%- endfor -%}
+           {%- endif -%}
+         {%- endif -%}
+{%- endmacro -%}
+
+{%- block header -%}
+C library code {{ api.generatedstr }}
+{%- endblock -%}
+
+{%- block content %}
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <ctype.h>
+#include <assert.h>
+
+{% for pre in apidef.pre.elements['prefix'].tolist() -%}
+{%- if apidef.ExtraCUse.elements.shape[0] > 0 -%}
+{%- for k in apidef.ExtraCUse.elements[apidef.ExtraCUse.elements['prefix']==pre]['text'] -%}
+{{ k }}
+{%- endfor %}
+{%- endif %}
+{%- endfor %}
+
+{#- ToDo FCLIB -#}
+{%- set multicheck = false -%}
+{%- set usecd = false -%}
+{%- if apidef.UseCD.elements.shape[0] > 0 -%}
+  {%- if apidef.UseCD.elements[apidef.UseCD.elements['prefix']==apidef.Prefix].shape[0] > 0 -%}
+      {%- set usecd = true -%}
+  {%- endif -%}
+{%- endif %}
+
+{%- set fsti = namespace(value=False) -%}
+{%- set enp = apidef.enp.elements['element'].to_list() -%}
+{%- for v in apidef.fsti.elements['name'] if not fsti.value -%}
+   {%- if v in enp -%} {% set fsti.value = True -%} {%- endif -%}
+{%- endfor -%}
+{%- if fsti.value %}
+#include "gclgms.h"
+{%- endif %}
+
+{%- if apidef.Prefix == 'gdx' %}
+{%- set optionalExternC = 'extern "C" ' %}
+{%- else %}
+{%- set optionalExternC = '' %}
+{%-endif %}
+
+#if defined(_WIN32)
+# define {{ apidef.Prefix.upper() }}_API {{ optionalExternC }}__declspec(dllexport)
+# define {{ apidef.Prefix.upper() }}_CALLCONV __stdcall
+#elif defined(__GNUC__)
+# define {{ apidef.Prefix.upper() }}_API {{ optionalExternC }}__attribute__((__visibility__("default")))
+# define {{ apidef.Prefix.upper() }}_CALLCONV
+#else
+# define {{ apidef.Prefix.upper() }}_API {{ optionalExternC }}
+# define {{ apidef.Prefix.upper() }}_CALLCONV
+#endif
+
+#ifndef APICHECKONLY
+
+{% for pre in apidef.pre.elements['prefix'].tolist() -%}
+   {%- set entmp = apidef.enp.elements[apidef.enp.elements['prefix']==pre]['element'].tolist() -%}
+   {%- set prefix  = apidef.pre.elements[apidef.pre.elements['prefix']==pre]['text'].iloc[0] -%}
+   {%- set prexfix = apidef.prex.elements[apidef.prex.elements['prefix']==pre]['text'].iloc[0] -%}
+   {%- if apidef.availifdefs %}
+#ifdef HAVE_{{ prexfix.upper() }}
+   {% endif -%}
+#define {{ prexfix }}Create {{ prexfix.lower() }}create
+   {%- if usecd %}
+#define {{ prexfix }}CreateD {{ prexfix.lower() }}created
+#define D__{{ prexfix }}CreateD d__{{ prexfix.lower() }}created
+   {%- endif %}
+#define {{ prexfix }}Free {{ prexfix.lower() }}free
+#define C__{{ prexfix }}APIVersion c__{{ prexfix.lower() }}apiversion
+#define D__{{ prexfix }}APIVersion d__{{ prexfix.lower() }}apiversion
+#define C__{{ prexfix }}Check c__{{ prexfix.lower() }}check
+#define D__{{ prexfix }}Check d__{{ prexfix.lower() }}check
+
+   {%- if apidef.ulp.elements.shape[0] > 0  -%} {# only on: USE_XXXLOADPATH=true #}
+#define C__{{ prefix }}SetLoadPath c__{{ prefix.lower() }}setloadpath
+#define C__{{ prefix }}GetLoadPath c__{{ prefix.lower() }}getloadpath
+   {%- endif -%}
+
+   {%- if not apidef.multi %}
+#define {{ prefix }}{{ prexfix }}Create {{ prefix.lower() }}{{ prexfix.lower() }}create
+      {%- if usecd %}
+#define {{ prefix }}{{ prexfix }}CreateD {{ prefix.lower() }}{{ prexfix.lower() }}created
+#define D__{{ prefix }}{{ prexfix }}CreateD d__{{ prefix.lower() }}{{ prexfix.lower() }}created
+      {%- endif -%} {#- usecd #}
+#define {{ prefix }}{{ prexfix }}Free {{ prefix.lower() }}{{ prexfix.lower() }}free
+#define D__{{ prefix }}{{ prexfix }}APIVersion d__{{ prefix.lower() }}{{ prexfix.lower() }}apiversion
+#define D__{{ prefix }}{{ prexfix }}Check d__{{ prefix.lower() }}{{ prexfix.lower() }}check
+   {%- endif %}
+   {%- if  (apidef.hif.elements.shape[0] > 0) and (prefix in (apidef.hif.elements['prefix'].tolist())) %}
+#define C__{{ prefix }}Initialize c__{{ prefix.lower() }}initialize
+#define C__{{ prefix }}Finalize c__{{ prefix.lower() }}finalize
+   {%- endif %}
+   {%- for key,value in apidef.tfunc.elements[apidef.tfunc.elements['name'].isin(entmp)].iterrows() %}
+#define C__{{ value['name'] }} c__{{ value['name'].lower() }}
+   {%- endfor %}
+   {%- set enstring = apidef.enstring.elements[apidef.enstring.elements['name'].isin(entmp)]['name'].tolist() -%}
+   {%- for key,value in apidef.tfunc.elements[apidef.tfunc.elements['name'].isin(enstring)].iterrows() %}
+#define D__{{ value['name'] }} d__{{ value['name'].lower() }}
+   {%- endfor %}
+   {%- set enostringa = apidef.enostringa.elements[apidef.enostringa.elements['name'].isin(entmp)]['name'].tolist() -%}
+   {%- for key,value in apidef.tfunc.elements[apidef.tfunc.elements['name'].isin(enostringa)].iterrows() %}
+#define N__{{ value['name'] }} n__{{ value['name'].lower() }}
+   {%- endfor -%}
+   {%- if ((not apidef.NOFORTRANCB) and  (apidef.fpf.elements.shape[0] > 0))   -%}
+      {%- set f = apidef.fpf.elements[apidef.fpf.elements['def'].isin(entmp)]['def'].tolist()  -%}
+      {%- if f | length > 0  -%}
+         {%- set fm    = apidef.FuncMap.elements[apidef.FuncMap.elements['def'].isin(f)] -%}
+         {%- set tfunc = apidef.tfunc.elements                                           -%}
+         {%- for key, value in tfunc[tfunc['name'].isin(f)].iterrows() if fm.shape[0] > 0 %}
+#define F__{{ value['name'] }} f__{{ value['name'].lower() }}
+         {%- endfor -%}
+      {%- endif -%}
+   {%- endif -%}
+   {%- if apidef.tprop.elements.shape[0] > 0 -%}
+      {%- for e in apidef.tprop.elements[apidef.tprop.elements['name'].isin(entmp)]['name'].tolist() -%}
+         {%- for k,v in apidef.pn.elements[apidef.pn.elements['name']==e].iterrows()  -%}
+            {%- if v['pactions'] == 'r' %}
+#define C__{{ e }} c__{{ e.lower() }}
+            {%- else %}
+#define C__{{ e }}Set c__{{ e.lower() }}set
+            {%- endif %}
+         {%- endfor %}
+      {%- endfor %}
+   {%- endif %}
+   {%- if apidef.availifdefs %}
+#endif
+   {%- endif %}
+
+{%- endfor %}
+
+{% for pre in apidef.pre.elements['prefix'].tolist() -%}
+   {%- set dobject = apidef.DObject.elements[apidef.DObject.elements['prefix']==pre]['text'].iloc[0] -%}
+   {%- set prefix  = apidef.pre.elements[apidef.pre.elements['prefix']==pre]['text'].iloc[0] -%}
+   {%- set prexfix = apidef.prex.elements[apidef.prex.elements['prefix']==pre]['text'].iloc[0] -%}
+   {%- if apidef.availifdefs %}
+#ifdef HAVE_{{ prexfix.upper() }}
+   {%- endif %}
+/* declarations shut up compiler warnings */
+{{ prefix.upper() }}_API void {{ prefix.upper() }}_CALLCONV {{ prexfix }}Create ({{ dobject }}Rec_t **{{ dobject }});
+{{ prefix.upper() }}_API void {{ prefix.upper() }}_CALLCONV {{ prexfix }}Create ({{ dobject }}Rec_t **{{ dobject }})
+{
+  char Msg_sst[256];
+  {{ prefix }}Create({{ dobject }}, Msg_sst, sizeof(Msg_sst));
+} /* {{ prexfix }}Create */
+
+{{ prefix.upper() }}_API int {{ prefix.upper() }}_CALLCONV {{ prefix }}create ({{ dobject }}Rec_t **{{ dobject }}, char *msgBuf, int msgBufLen);
+{{ prefix.upper() }}_API int {{ prefix.upper() }}_CALLCONV {{ prefix }}create ({{ dobject }}Rec_t **{{ dobject }}, char *msgBuf, int msgBufLen)
+{
+  assert(NULL != {{ dobject }});
+  *{{ dobject }} = NULL;
+  {{ prexfix }}Create ({{ dobject }});
+  if (NULL == *{{ dobject }}) {
+    strncpy (msgBuf, "Error while creating object", msgBufLen);
+    if (msgBufLen > 0)
+      msgBuf[msgBufLen-1] = '\0';
+    return 0;
+  }
+  else {
+    if (msgBufLen > 0)
+      msgBuf[0] = '\0';
+    return 1;
+  }
+} /* {{ prefix }}create */
+
+   {%- if usecd %}
+
+{{ prefix.upper() }}_API void {{ prefix.upper() }}_CALLCONV {{ prexfix }}CreateD ({{ dobject }}Rec_t **{{ dobject }}, const char *dirName);
+{{ prefix.upper() }}_API void {{ prefix.upper() }}_CALLCONV {{ prexfix }}CreateD ({{ dobject }}Rec_t **{{ dobject }}, const char *dirName)
+{
+  char Msg_sst[256];
+  {{ prefix }}CreateD({{ dobject }}, dirName, Msg_sst, sizeof(Msg_sst));
+} /* {{ prexfix }}CreateD */
+
+{{ prefix.upper() }}_API int {{ prefix.upper() }}_CALLCONV {{ prefix }}created ({{ dobject }}Rec_t **{{ dobject }}, const char *dirName, char *msgBuf, int msgBufLen);
+{{ prefix.upper() }}_API int {{ prefix.upper() }}_CALLCONV {{ prefix }}created ({{ dobject }}Rec_t **{{ dobject }}, const char *dirName, char *msgBuf, int msgBufLen)
+{
+  {{ prexfix }}CreateD ({{ dobject }}, dirName);
+  if (NULL == {{ dobject }}) {
+    strncpy (msgBuf, "Error while creating object", msgBufLen);
+    if (msgBufLen > 0)
+      msgBuf[msgBufLen-1] = '\0';
+    return 0;
+  }
+  else {
+    if (msgBufLen > 0)
+      msgBuf[0] = '\0';
+    return 1;
+  }
+} /* {{ prefix }}Created */
+
+{{ prefix.upper() }}_API void {{ prefix.upper() }}_CALLCONV D__{{ prexfix }}CreateD ({{ dobject }}Rec_t **{{ dobject }}, const char *dirName);
+{{ prefix.upper() }}_API void {{ prefix.upper() }}_CALLCONV D__{{ prexfix }}CreateD ({{ dobject }}Rec_t **{{ dobject }}, const char *dirName)
+{
+  char Msg_sst[256];
+  char dirName_sst[256];
+  strncpy(dirName_sst,(char *) dirName+1,(unsigned char)dirName[0]);
+  dirName_sst[(unsigned char)dirName[0]] = '\0';
+  {{ prefix }}CreateD({{ dobject }}, dirName_sst, Msg_sst, sizeof(Msg_sst));
+} /* D__{{ prexfix }}CreateD */
+
+{{ prefix.upper() }}_API int {{ prefix.upper() }}_CALLCONV d__{{ prefix }}created ({{ dobject }}Rec_t **{{ dobject }}, const char *dirName, char *msgBuf, int msgBufLen);
+{{ prefix.upper() }}_API int {{ prefix.upper() }}_CALLCONV d__{{ prefix }}created ({{ dobject }}Rec_t **{{ dobject }}, const char *dirName, char *msgBuf, int msgBufLen)
+{
+  char dirName_sst[256];
+  strncpy(dirName_sst,(char *) dirName+1,(unsigned char)dirName[0]);
+  dirName_sst[(unsigned char)dirName[0]] = '\0';
+  {{ prexfix }}CreateD ({{ dobject }}, dirName_sst);
+  if (NULL == {{ dobject }}) {
+    strncpy (msgBuf, "Error while creating object", msgBufLen);
+    if (msgBufLen > 0)
+      msgBuf[msgBufLen-1] = '\0';
+    return 0;
+  }
+  else {
+    if (msgBufLen > 0)
+      msgBuf[0] = '\0';
+    return 1;
+  }
+} /* d__{{ prefix }}Created */
+
+   {%- endif -%} {#- usecd #}
+
+   {%- if not apidef.multi %}
+
+{{ prefix.upper() }}_API void {{ prefix.upper() }}_CALLCONV {{ prefix }}{{ prexfix }}Create ({{ dobject }}Rec_t **{{ dobject }});
+{{ prefix.upper() }}_API void {{ prefix.upper() }}_CALLCONV {{ prefix }}{{ prexfix }}Create ({{ dobject }}Rec_t **{{ dobject }})
+{
+  {{ prexfix }}Create({{ dobject }});
+} /* {{ prefix }}{{ prexfix }}Create */
+
+      {%- if usecd %}
+{{ prefix.upper() }}_API void {{ prefix.upper() }}_CALLCONV {{ prefix }}{{ prexfix }}CreateD ({{ dobject }}Rec_t **{{ dobject }}, const char *dirName);
+{{ prefix.upper() }}_API void {{ prefix.upper() }}_CALLCONV {{ prefix }}{{ prexfix }}CreateD ({{ dobject }}Rec_t **{{ dobject }}, const char *dirName)
+{
+  {{ prexfix }}CreateD({{ dobject }}, dirName);
+} /* {{ prefix }}{{ prexfix }}CreateD */
+
+{{ prefix.upper() }}_API void {{ prefix.upper() }}_CALLCONV D__{{ prefix }}{{ prexfix }}CreateD ({{ dobject }}Rec_t **{{ dobject }}, const char *dirName);
+{{ prefix.upper() }}_API void {{ prefix.upper() }}_CALLCONV D__{{ prefix }}{{ prexfix }}CreateD ({{ dobject }}Rec_t **{{ dobject }}, const char *dirName)
+{
+  char dirName_sst[256];
+  strncpy(dirName_sst,(char *) dirName+1,(unsigned char)dirName[0]);
+  dirName_sst[(unsigned char)dirName[0]] = '\0';
+  {{ prexfix }}CreateD({{ dobject }}, dirName_sst);
+} /* D__{{ prefix }}{{ prexfix }}CreateD */
+
+      {%- endif -%} {#- usecd #}
+   {%- endif -%} {#- not apidef.multi #}
+
+{{ prefix.upper() }}_API void {{ prefix.upper() }}_CALLCONV {{ prexfix }}Free ({{ dobject }}Rec_t **{{ dobject }});
+{{ prefix.upper() }}_API void {{ prefix.upper() }}_CALLCONV {{ prexfix }}Free ({{ dobject }}Rec_t **{{ dobject }})
+{
+  if (*{{ dobject }} != NULL)
+  {
+    {{ prefix }}Free({{ dobject }});
+  }
+} /* {{ prexfix }}Free */
+
+{{ prefix.upper() }}_API int {{ prefix.upper() }}_CALLCONV {{ prefix }}free ({{ dobject }}Rec_t **{{ dobject }});
+{{ prefix.upper() }}_API int {{ prefix.upper() }}_CALLCONV {{ prefix }}free ({{ dobject }}Rec_t **{{ dobject }})
+{
+  {{ prexfix }}Free ({{ dobject }});
+  if (NULL == *{{ dobject }})
+    return 1;
+  else
+    return 0;
+} /* {{ prefix }}free */
+   {%- if not apidef.multi %}
+
+{{ prefix.upper() }}_API void {{ prefix.upper() }}_CALLCONV {{ prefix }}{{ prexfix }}Free ({{ dobject }}Rec_t **{{ dobject }});
+{{ prefix.upper() }}_API void {{ prefix.upper() }}_CALLCONV {{ prefix }}{{ prexfix }}Free ({{ dobject }}Rec_t **{{ dobject }})
+{
+  {{ prexfix }}Free({{ dobject }});
+} /* {{ prefix }}{{ prexfix }}Free */
+   {%- endif -%} {#- not apidef.multi #}
+   {%- if apidef.availifdefs %}
+#endif
+   {%- endif %}
+
+#endif
+
+{%- endfor %}
+
+/* comp returns the compatibility mode:
+   0: client is too old for the DLL, no compatibility
+   1: client version and DLL version are the same, full compatibility
+   2: client is older than DLL, but defined as compatible, backward compatibility
+   3: client is newer than DLL, forward compatibility                              */
+{%- for pre in apidef.pre.elements['prefix'].tolist() %}
+   {%- set prefix  = apidef.pre.elements[apidef.pre.elements['prefix']==pre]['text'].iloc[0] -%}
+   {%- set prexfix = apidef.prex.elements[apidef.prex.elements['prefix']==pre]['text'].iloc[0] -%}
+
+   {%- if apidef.availifdefs %}
+#ifdef HAVE_{{ prexfix.upper() }}
+   {%- endif %}
+{{ prefix.upper() }}_API int {{ prefix.upper() }}_CALLCONV C__{{ prexfix }}APIVersion(int api, char *Msg, int *comp);
+{{ prefix.upper() }}_API int {{ prefix.upper() }}_CALLCONV C__{{ prexfix }}APIVersion(int api, char *Msg, int *comp)
+{
+  *comp = 0;
+{#-
+$if %multi% == 1 r(rv)        = pr(pre,rv);
+$if %multi% == 1 version(r,c) = versiona(pre,r,c);
+#}
+   {%- for rv in apidef.Version.elements[apidef.Version.elements['prefix']==pre]['rv'].tolist() | unique %}
+  if (api >= {{ rv }}) {
+    if (api == {{ rv }}) {
+      *comp = 1;
+      strcpy(Msg,"{{ apidef.CLib }}: Client version and DLL version are the same.");
+    }
+    else {
+      *comp = 3;
+      strcpy(Msg,"{{ apidef.CLib }}: Client version is newer than this DLL.");
+    }
+    return 1;
+  }
+  if (
+      {%- set counter = namespace(value=0) -%}
+      {%- set version = apidef.Version.elements[apidef.Version.elements['prefix']==pre]['cv'].tolist() -%}
+      {%- for cv in version %}
+         {%- if counter.value == 0 -%}
+            {%- if version | length == 1 -%} api == {{ cv }}
+            {%- else  -%} (api == {{ cv }})
+            {%- endif -%}
+         {%- else   %} || (api == {{ cv }})
+         {%- endif -%}
+         {%- set counter.value = counter.value + 1 -%}
+      {%- endfor -%}
+  ) {
+    *comp = 2;
+    strcpy(Msg,"{{ apidef.CLib }}: Client version is compatible to this version of the DLL.");
+    return 1;
+  }
+  sprintf(Msg,"{{ apidef.CLib }}: The API is too old for the used library, API version: %d, library version: {{ rv }}",api);
+  return 0;
+} /* C__{{ prexfix }}APIVersion */
+   {%- endfor -%} {#- rv #}
+
+{{ prefix.upper() }}_API int {{ prefix.upper() }}_CALLCONV D__{{ prexfix }}APIVersion(int api, char *Msg, int *comp);
+{{ prefix.upper() }}_API int {{ prefix.upper() }}_CALLCONV D__{{ prexfix }}APIVersion(int api, char *Msg, int *comp)
+{
+  int XAPIVersion_result;
+  char Msg_sst[256];
+  char *Msg_local;
+
+  Msg_sst[0] = '\0';
+  XAPIVersion_result = C__{{ prexfix }}APIVersion(api,Msg_sst,comp);
+  Msg_local = Msg+1;
+  strncpy(Msg_local,Msg_sst,(strlen(Msg_sst)>255?255:strlen(Msg_sst)));
+  Msg[0] = strlen(Msg_sst);
+  return XAPIVersion_result;
+} /* D__{{ prexfix }}APIVersion */
+
+   {%- if apidef.multi == multicheck %}
+
+{{ prefix.upper() }}_API int {{ prefix.upper() }}_CALLCONV D__{{ prefix }}{{ prexfix }}APIVersion(int api, char *Msg, int *comp);
+{{ prefix.upper() }}_API int {{ prefix.upper() }}_CALLCONV D__{{ prefix }}{{ prexfix }}APIVersion(int api, char *Msg, int *comp)
+{
+  return D__{{ prexfix }}APIVersion(api, Msg, comp);
+} /* D__{{ prefix }}{{ prexfix }}APIVersion */
+   {%- endif %}
+
+   {%- if apidef.availifdefs %}
+#endif
+   {%- endif %}
+{%- endfor %}
+
+static int CheckSign(const char *funcn, int DLLNrArg, int ClNrArg, int DLLsign[], int Clsign[], char *Msg)
+{
+  int i;
+
+  Msg[0] = '\0';
+  if(DLLNrArg != ClNrArg)
+  {
+    sprintf(Msg,"{{ apidef.CLib }}: %s has wrong number of arguments.",funcn);
+    return 0;
+  }
+  else
+  {
+    for(i=0;i<=DLLNrArg;i++)
+    {
+      if(DLLsign[i] != Clsign[i])
+      {
+        sprintf(Msg,"{{ apidef.CLib }}: %s has wrong argument types.",funcn);
+        return 0;
+      }
+    }
+  }
+  return 1;
+} /* CheckSign */
+
+{%- for pre in apidef.pre.elements['prefix'].tolist() %}
+   {%- set entmp = apidef.enp.elements[apidef.enp.elements['prefix']==pre]['element'].tolist() -%}
+   {%- set dobject = apidef.DObject.elements[apidef.DObject.elements['prefix']==pre]['text'].iloc[0] -%}
+   {%- set prefix  = apidef.pre.elements[apidef.pre.elements['prefix']==pre]['text'].iloc[0] -%}
+   {%- set prexfix = apidef.prex.elements[apidef.prex.elements['prefix']==pre]['text'].iloc[0] -%}
+
+   {%- if apidef.availifdefs %}
+#ifdef HAVE_{{ prexfix.upper() }}
+   {%- endif %}
+
+{{ prefix.upper() }}_API int {{ prefix.upper() }}_CALLCONV C__{{ prexfix }}Check(const char *funcn, int ClNrArg, int Clsign[], char *Msg);
+{{ prefix.upper() }}_API int {{ prefix.upper() }}_CALLCONV C__{{ prexfix }}Check(const char *funcn, int ClNrArg, int Clsign[], char *Msg)
+{
+  int DLLsign[{{ apidef.fargmax['value']+1 }}];
+   {%- set counter = namespace(value=0) -%}
+   {%- for key,value in apidef.tfunc.elements[apidef.tfunc.elements['name'].isin(entmp)].iterrows() %}
+      {%- if counter.value == 0 %}
+  if(!strcmp(funcn,"{{ value['name'] }}"))
+      {%- else %}
+  else if(!strcmp(funcn,"{{ value['name'] }}"))
+      {%- endif %}
+  {
+    DLLsign[0] = {{ taind(value['type']) }};
+      {%- set tpp = datadef.tpp.elements['tp'] -%}
+      {%- set fnames = apidef.f.elements[apidef.f.elements['name']==value['name']] -%}
+      {%- for fkey,fvalue in fnames[fnames['pos'].isin(tpp)].iterrows() -%}
+DLLsign[{{ fvalue['pos'] }}] = {{ taind(fvalue['type'])  }};
+      {%- endfor -%} {#- f #}
+      {%- set farg = apidef.farg.elements.loc[apidef.farg.elements['name']==value['name'],'value'] %}
+      {%- if farg.shape[0] < 1 %} {%- set arg = 0 %} {%- else %} {%- set arg = farg.iloc[0] -%} {%- endif %}
+    return CheckSign(funcn,{{ arg }},ClNrArg,DLLsign,Clsign,Msg);
+  }
+      {%- set counter.value = counter.value + 1 -%}
+   {%- endfor -%} {# apidef.tfunc #}
+   {%- if apidef.pn.elements.shape[0] > 0 -%}
+      {%- for key,value in apidef.pn.elements[apidef.pn.elements['name'].isin(entmp)].iterrows() %}
+  else if(!strcmp(funcn,"{{ value['name'] }} {%- if value['pactions'] == 'w' -%} Set {%- endif -%}"))
+  {
+         {%- if value['pactions'] == 'w' %}
+    DLLsign[0] = {{ taind('void') }}; DLLsign[1] = {{ taind(value['type']) }};
+    return CheckSign(funcn,1,ClNrArg,DLLsign,Clsign,Msg);
+         {%- else %}
+    DLLsign[0] = {{ taind(value['type']) }};
+    return CheckSign(funcn,0,ClNrArg,DLLsign,Clsign,Msg);
+         {%- endif %}
+  }
+      {%- endfor -%} {#- apidef.pn #}
+   {%- endif %}
+  else
+  {
+    sprintf(Msg,"{{ apidef.CLib }}: %s cannot be found in library.",funcn);
+    return 0;
+  }
+} /* C__{{ prexfix }}Check */
+
+{{ prefix.upper() }}_API int {{ prefix.upper() }}_CALLCONV D__{{ prexfix }}Check(const unsigned char *funcn, int ClNrArg, int Clsign[], char *Msg);
+{{ prefix.upper() }}_API int {{ prefix.upper() }}_CALLCONV D__{{ prexfix }}Check(const unsigned char *funcn, int ClNrArg, int Clsign[], char *Msg)
+{
+  int XCheck_result;
+  char funcn_sst[256];
+  char Msg_sst[256];
+  char *Msg_local;
+
+  strncpy(funcn_sst,(const char *)funcn+1,funcn[0]);
+  funcn_sst[funcn[0]] = '\0';
+  XCheck_result = C__{{ prexfix }}Check(funcn_sst,ClNrArg,Clsign,Msg_sst);
+  Msg_local = Msg+1;
+  strncpy(Msg_local,Msg_sst,(strlen(Msg_sst)>255?255:strlen(Msg_sst)));
+  Msg[0] = strlen(Msg_sst);
+  return XCheck_result;
+} /* D__{{ prexfix }}Check */
+
+    {%- if apidef.multi == multicheck %}
+
+{{ prefix.upper() }}_API int {{ prefix.upper() }}_CALLCONV D__{{ prefix }}{{ prexfix }}Check(const unsigned char *funcn, int ClNrArg, int Clsign[], char *Msg);
+{{ prefix.upper() }}_API int {{ prefix.upper() }}_CALLCONV D__{{ prefix }}{{ prexfix }}Check(const unsigned char *funcn, int ClNrArg, int Clsign[], char *Msg)
+{
+  return D__{{ prexfix }}Check(funcn, ClNrArg, Clsign, Msg);
+} /* D__{{ prefix }}{{ prexfix }}Check */
+
+   {%- endif %}
+   {%- if (apidef.hif.elements.shape[0] > 0) and (prefix in (apidef.hif.elements['prefix'].tolist())) %}
+
+{{ prefix.upper() }}_API void {{ prefix.upper() }}_CALLCONV C__{{ prefix }}Initialize(void);
+{{ prefix.upper() }}_API void {{ prefix.upper() }}_CALLCONV C__{{ prefix }}Initialize(void)
+{
+  {{ prefix }}Initialize();
+}
+
+{{ prefix.upper() }}_API void {{ prefix.upper() }}_CALLCONV C__{{ prefix }}Finalize(void);
+{{ prefix.upper() }}_API void {{ prefix.upper() }}_CALLCONV C__{{ prefix }}Finalize(void)
+{
+  {{ prefix }}Finalize();
+}
+   {%- endif -%} {#- apidef.hif #}
+   {%- if apidef.availifdefs %}
+#endif
+   {%- endif %}
+{%- endfor %}
+
+{# load path: begin #}
+{%- for pre in apidef.pre.elements['prefix'].tolist() -%}
+   {%- set pretext = prefix(pre) -%}
+   {%- if apidef.ulp.elements.shape[0] > 0  -%} {# only on: USE_XXXLOADPATH=true #}
+     {%- set ulp = apidef.ulp.elements[apidef.ulp.elements['prefix'] == pre]                      -%}
+     {%- set dunit   = apidef.DUnit.elements[apidef.DUnit.elements['prefix']==pre]['text'].iloc[0] %}
+{{ pretext.upper() }}_API void {{ pretext.upper() }}_CALLCONV C__{{ pretext }}SetLoadPath(const char *s) {
+   {{ pretext }}SetLoadPath(s);
+} /* C__{{ pretext }}SetLoadPath */
+
+{{ pretext.upper() }}_API void {{ pretext.upper() }}_CALLCONV C__{{ pretext }}GetLoadPath(char *s) {
+   {{ pretext }}GetLoadPath(s);
+} /* C__{{ pretext }}GetLoadPath */
+   {%- endif %}
+{%- endfor -%}
+{# load path: end #}
+
+#ifndef APICHECKONLY
+
+{%- set tpp = datadef.tpp.elements['tp']                -%}
+
+{%- for pre in apidef.pre.elements['prefix'].tolist() -%}
+   {%- set entmp = apidef.enp.elements[apidef.enp.elements['prefix']==pre]['element'].tolist() -%}
+   {%- set dobject = apidef.DObject.elements[apidef.DObject.elements['prefix']==pre]['text'].iloc[0] -%}
+   {%- set prefix  = apidef.pre.elements[apidef.pre.elements['prefix']==pre]['text'].iloc[0] -%}
+   {%- set prexfix = apidef.prex.elements[apidef.prex.elements['prefix']==pre]['text'].iloc[0] -%}
+
+   {%- if apidef.availifdefs %}
+#ifdef HAVE_{{ prexfix.upper() }}
+   {%- endif %}
+   {#- set entmp = apidef.entp.elements['element'].tolist() -#}
+   {%- for key,value in apidef.tfunc.elements[apidef.tfunc.elements['name'].isin(entmp)].iterrows() -%}
+      {#- put declaration: squash warnings about missing declarations #}
+
+{{ CFunctionDeclaration(prefix.upper(), value['type'], value['name'], dobject) }};
+{{ CFunctionDeclaration(prefix.upper(), value['type'], value['name'], dobject) }}
+{ 
+   {#- -#} {{ CallByRef(apidef, dobject, value['name']) }} {#- -#}
+     {%- if value['type'] != 'void' %}
+  return {{ value['name'] }}({{ dobject }} 
+     {%- else                       %}
+  {{ value['name'] }}({{ dobject }}
+     {%- endif -%}
+     {%- set tpp = datadef.tpp.elements['tp']                          -%}
+     {%- set f = apidef.f.elements[apidef.f.elements['pos'].isin(tpp)] -%}
+     {%- for fkey,fvalue in f[f['name'] == value['name']].iterrows() -%}
+, {{ fvalue['arg'] }}
+        {%- if fvalue['type'] == 'xss' -%}, {{ fvalue['arg'] }}_i {%- endif -%}
+     {%- endfor -%} {#- apidef.f -#}
+   );
+}
+  {%- endfor -%} {# apidef.tfunc #}
+  {%- if apidef.availifdefs %}
+#endif
+  {%- endif %}
+{%- endfor %}
+
+{%- for pre in apidef.pre.elements['prefix'].tolist() -%}
+   {%- set entmp = apidef.enp.elements[apidef.enp.elements['prefix']==pre]['element'].tolist() -%}
+   {%- set enstring = apidef.enstring.elements['name'].tolist()                                -%}
+   {%- set dobj    = dobject(pre)                                                              -%}
+   {%- set prefix  = apidef.pre.elements[apidef.pre.elements['prefix']==pre]['text'].iloc[0]   -%}
+   {%- set prexfix = apidef.prex.elements[apidef.prex.elements['prefix']==pre]['text'].iloc[0] -%}
+
+   {%- if apidef.availifdefs %}
+#ifdef HAVE_{{ prexfix.upper() }}
+   {%- endif %}
+
+   {%- for key,value in apidef.tfunc.elements[apidef.tfunc.elements['name'].isin(enstring)].iterrows() -%}
+     {#- put declaration: squash warnings about missing declarations #}
+
+{{ DFunctionDeclaration(prefix.upper(), value['type'], value['name'], dobj) }};
+{{ DFunctionDeclaration(prefix.upper(), value['type'], value['name'], dobj) }}
+{ 
+   {#- -#} {{ CallByRef(apidef, dobj, value['name']) }} {#- -#}
+     {% if value['type'] != 'void' %}
+  {{ CType(value['type']) }} {{ CCall(value['type']) }} {{ value['name'] }}_result;
+     {%- endif %}
+     {%- set tass  = datadef.tass.elements['ta'].tolist()                       -%}
+     {%- set fe = apidef.f.elements[apidef.f.elements['name'] == value['name']] -%}
+     {%- set fetpp = fe[fe['pos'].isin(tpp)]                                    -%}
+     {%- set fetpptass = fetpp[fetpp['type'].isin(tass)]                        -%}
+     {% for fkey,fvalue in fetpp[fetpp['type'].isin(tass)].iterrows() -%}
+       {% if fvalue['type'] in ['css', 'oss', 'xss'] %}
+  char {{ fvalue['arg'] }}_sst[256];
+         {%- if fvalue['type'] != 'css' %}
+  char *{{ fvalue['arg'] }}_local;
+         {%- endif %}
+       {%- endif %}
+       {%- if fvalue['type'] in ['csi', 'osi'] %}
+  int {{ fvalue['arg'] }}_cnt;
+  int {{ fvalue['arg'] }}_sidim;
+  gdxStrIndex_t {{ fvalue['arg'] }}_dim;
+  gdxStrIndexPtrs_t {{ fvalue['arg'] }}_pdim;
+       {%- endif %}
+     {%- endfor -%} {#- fetpp[fetpp['type'].isin(tass)]                                                     -#}
+     {%- for fmkey,fvalue in fetpp[fetpp['type'].isin(tass)].iterrows() if (fvalue['type'] == 'css')         %}
+  strncpy({{ fvalue['arg'] }}_sst,(char *) {{ fvalue['arg'] }} + 1,(unsigned char) {{ fvalue['arg'] }}[0]);
+  {{ fvalue['arg'] }}_sst[(unsigned char) {{ fvalue['arg'] }}[0]] = '\0';
+     {%- endfor                                                                                              %}
+     {%- for fkey,fvalue in fetpp[fetpp['type'].isin(tass)].iterrows() if (fvalue['type'] in ['csi', 'osi']) %}
+  GDXSTRINDEXPTRS_INIT({{ fvalue['arg'] }}_dim,{{ fvalue['arg'] }}_pdim); /* assign pdim */
+       {%- if fvalue['type'] == 'csi' -%}
+          {%- if apidef.MaxDimStyle is not defined or apidef.MaxDimStyle.elements.shape[0] == 0 %}
+  {{ fvalue['arg'] }}_sidim = GMS_MAX_INDEX_DIM;
+          {%- elif apidef.Prefix == 'gmd' and apidef.MaxDimStyle.elements[apidef.MaxDimStyle.elements['prefix']=='gmd'].shape[0] > 0 -%}
+             {%- if (apidef.useADim is defined) and (apidef.useADim.elements.shape[0] >0) and 
+                (fvalue['name'] in apidef.useADim.elements['name'].tolist())              -%}
+               {%- if fvalue['name'] in apidef.fstiV.elements['name'].tolist() %}
+  {{ fvalue['arg'] }}_sidim = *aDim;
+               {%- else                                                        %}
+  {{ fvalue['arg'] }}_sidim = aDim;
+               {%- endif -%}
+             {%- else                                                                          %}
+  if(!gmdSymbolDim(gmd,symPtr,&{{ fvalue['arg'] }}_sidim)) return 0;
+         {%- endif -%}
+       {%- elif apidef.Prefix == 'gdx' and apidef.MaxDimStyle.elements[apidef.MaxDimStyle.elements['prefix']=='gdx'].shape[0] > 0 -%}
+         {%- if (apidef.useCurrentDim is defined) and (apidef.useCurrentDim.elements.shape[0] > 0) and
+                (fvalue['name'] in apidef.useCurrentDim.elements['name'].tolist())              %}
+  {{ fvalue['arg'] }}_sidim = gdxCurrentDim({{ dobj }});
+         {%- elif (apidef.useSymbolDim is defined) and (apidef.useSymbolDim.elements.shape[0] > 0) and
+                  (fvalue['name'] in apidef.useSymbolDim.elements['name'].tolist())              %}
+  {{ fvalue['arg'] }}_sidim = gdxSymbolDim({{ dobj }}, SyNr);
+         {%- endif -%}
+       {%- endif %}
+  for({{ fvalue['arg'] }}_cnt=0;{{ fvalue['arg'] }}_cnt<{{ fvalue['arg'] }}_sidim;{{ fvalue['arg'] }}_cnt++)
+  {
+    strncpy({{ fvalue['arg'] }}_pdim[{{ fvalue['arg'] }}_cnt],(char *) {{ fvalue['arg'] }} + {{ fvalue['arg'] }}_cnt*256 + 1,(unsigned char) {{ fvalue['arg'] }}[{{ fvalue['arg'] }}_cnt*256]);
+    {{ fvalue['arg'] }}_dim[{{ fvalue['arg'] }}_cnt][(unsigned char) {{ fvalue['arg'] }}[{{ fvalue['arg'] }}_cnt*256]] = '\0';
+  }
+       {%- elif fvalue['type'] == 'osi' -%}
+           {%- if apidef.Prefix == 'gdx' and apidef.MaxDimStyle.elements[apidef.MaxDimStyle.elements['prefix']=='gdx'].shape[0] > 0 -%}
+             {%- if (apidef.useCurrentDim is defined) and (apidef.useCurrentDim.elements.shape[0] > 0) and
+                (fvalue['name'] in apidef.useCurrentDim.elements['name'].tolist())              %}
+  {{ fvalue['arg'] }}_sidim = gdxCurrentDim({{ dobj }});
+             {%- elif (apidef.useSymbolDim is defined) and (apidef.useSymbolDim.elements.shape[0] > 0) and
+                      (fvalue['name'] in apidef.useSymbolDim.elements['name'].tolist())              %}
+  {{ fvalue['arg'] }}_sidim = gdxSymbolDim({{ dobj }}, SyNr);
+             {%- endif %}
+  /*for({{ fvalue['arg'] }}_cnt=0;{{ fvalue['arg'] }}_cnt<{{ fvalue['arg'] }}_sidim;{{ fvalue['arg'] }}_cnt++)
+  {
+    strncpy({{ fvalue['arg'] }}_pdim[{{ fvalue['arg'] }}_cnt],(char *) {{ fvalue['arg'] }} + {{ fvalue['arg'] }}_cnt*256 + 1,(unsigned char) {{ fvalue['arg'] }}[{{ fvalue['arg'] }}_cnt*256]);
+    {{ fvalue['arg'] }}_dim[{{ fvalue['arg'] }}_cnt][(unsigned char) {{ fvalue['arg'] }}[{{ fvalue['arg'] }}_cnt*256]] = '\0';
+  }*/
+           {%- endif %}
+       {%- endif -%}
+     {%- endfor                                                                                             -%}
+
+     {%- if value['type'] != 'void' %}
+  {{ value['name'] }}_result = {{ value['name'] }}({{ dobj }}
+     {%- else                       %}
+  {{ value['name'] }}({{ dobj }}
+     {%- endif -%}
+     {%- for fkey,fvalue in fetpp.iterrows() -%}
+       {%- if fvalue['type'] == 'css'            %}, {{ fvalue['arg'] }}_sst
+       {%- elif fvalue['type'] in ['oss', 'xss'] %}, {{ fvalue['arg'] }}_sst
+       {%- elif fvalue['type'] == 'csi'          %}, (const char **) {{ fvalue['arg'] }}_pdim
+       {%- elif fvalue['type'] == 'osi'          %}, {{ fvalue['arg'] }}_pdim
+       {%- else                                  %}, {{ fvalue['arg'] }}
+       {%- endif -%}
+       {%- if fvalue['type'] == 'xss'           %}, 255
+       {%- endif -%}
+     {%- endfor -%} {#- fetpp[fetpp['type'].isin(tass)].iterrows() if (fvalue['type'] == 'csi')             -#}
+);
+     {%- for fkey,fvalue in fetpp[fetpp['type'].isin(tass)].iterrows() if (fvalue['type'] in ['oss', 'xss']) %}
+  {{ fvalue['arg'] }}_local = {{ fvalue['arg'] }}+1;
+  strncpy({{ fvalue['arg'] }}_local,{{ fvalue['arg'] }}_sst,(strlen({{ fvalue['arg'] }}_sst)>255?255:strlen({{ fvalue['arg'] }}_sst)));
+  {{ fvalue['arg'] }}[0] = strlen({{ fvalue['arg'] }}_sst);
+     {%- endfor -%} {#- fetpp[fetpp['type'].isin(tass)]                                                     -#}
+     {%- for fkey,fvalue in fetpp[fetpp['type'].isin(tass)].iterrows() if (fvalue['type'] == 'osi')          %}
+        {% if apidef.MaxDimStyle is not defined or apidef.MaxDimStyle.elements.shape[0] == 0 %}
+  {{ fvalue['arg'] }}_sidim = GMS_MAX_INDEX_DIM;
+        {%- elif apidef.Prefix == 'gmd' and apidef.MaxDimStyle.elements[apidef.MaxDimStyle.elements['prefix']=='gmd'].shape[0] > 0 -%}
+          {%- if (apidef.useADim is defined) and (apidef.useADim.elements.shape[0] >0) and 
+                 (fvalue['name'] in apidef.useADim.elements['name'].tolist()) -%}
+             {% if fvalue['name'] in apidef.fstiV.elements['name'].tolist() %}
+  {{ fvalue['arg'] }}_sidim = *aDim;
+             {% else %}
+  {{ fvalue['arg'] }}_sidim = aDim;
+             {% endif %}
+          {% else %}
+  if(!gmdSymbolDim(gmd,symPtr,&{{ fvalue['arg'] }}_sidim)) return 0;
+        {#%- elif apidef.Prefix == 'gdx' and apidef.MaxDimStyle.elements[apidef.MaxDimStyle.elements['prefix']]=='gdx'  -%}
+$        abort MaxDimStyle = gdx needs extra work for C Library  #}
+          {% endif %}
+        {%- endif %}
+  for({{ fvalue['arg'] }}_cnt=0;{{ fvalue['arg'] }}_cnt<{{ fvalue['arg'] }}_sidim;{{ fvalue['arg'] }}_cnt++)
+  {
+    strncpy({{ fvalue['arg'] }} + {{ fvalue['arg'] }}_cnt*256 + 1,{{ fvalue['arg'] }}_pdim[{{ fvalue['arg'] }}_cnt],(strlen({{ fvalue['arg'] }}_pdim[{{ fvalue['arg'] }}_cnt])>255?255:strlen({{ fvalue['arg'] }}_pdim[{{ fvalue['arg'] }}_cnt])));
+    {{ fvalue['arg'] }}[{{ fvalue['arg'] }}_cnt*256] = strlen({{ fvalue['arg'] }}_pdim[{{ fvalue['arg'] }}_cnt]);
+  }  
+     {%- endfor -%} {#- fetpp[fetpp['type'].isin(tass)].iterrows() if (fvalue['type'] == 'osi')             -#}
+     {%- if value['type'] != 'void' %}
+  return {{ value['name'] }}_result;
+     {%- endif %}
+}
+  {%- endfor -%} {# apidef.tfunc #}
+  {%- if apidef.availifdefs %}
+#endif
+  {%- endif %}
+
+{%- endfor %}
+
+{%- for pre in apidef.pre.elements['prefix'].tolist() if apidef.enostringa.elements.shape[0] > 0 -%}
+  {#- put declaration: squash warnings about missing declarations -#}
+  {%- set enostringa = apidef.enostringa.elements['name'].tolist()                            -%}
+  {%- set entmp = apidef.enp.elements[apidef.enp.elements['prefix']==pre]['element'].tolist() -%}
+  {%- set prefix  = apidef.pre.elements[apidef.pre.elements['prefix']==pre]['text'].iloc[0]   -%}
+  {%- for key,value in apidef.tfunc.elements[apidef.tfunc.elements['name'].isin(enostringa)].iterrows() 
+      if value['name'] in entmp %}
+
+{{ NFunctionDeclaration(prefix.upper(), value['type'], value['name'], dobject(pre), entmp) }};
+{{ NFunctionDeclaration(prefix.upper(), value['type'], value['name'], dobject(pre), entmp) }}
+{ 
+   {#- -#} {{ CallByRef(apidef, dobject(pre), value['name']) }} {#- -#}
+   {%- if value['type'] != 'void' %}
+  {{ CType(value['type']) }} {{ CCall(value['type']) }} {{ value['name'] }}_result;
+   {%- endif -%}
+   {%- set tpp = datadef.tpp.elements['tp']                          -%}
+   {%- set f = apidef.f.elements[apidef.f.elements['pos'].isin(tpp)] -%}
+   {%- for fkey,fvalue in f[f['name'] == value['name']].iterrows() -%}
+      {%- if fvalue['type'] in ['css','oss','xss'] %}
+  char {{ fvalue['arg'] }}_sst[256];
+         {%- if fvalue['type'] != 'css' %}
+  char *{{ fvalue['arg'] }}_local;
+         {%- endif -%}
+      {%- elif fvalue['type'] == 'osi'             %}
+  gdxStrIndexPtrs_t {{ fvalue['arg'] }}_pdim;
+      {%- elif fvalue['type'] == 'csi'             %}
+  int {{ fvalue['arg'] }}_cnt;
+  int {{ fvalue['arg'] }}_sidim;
+  gdxStrIndex_t {{ fvalue['arg'] }}_dim;
+  gdxStrIndexPtrs_t {{ fvalue['arg'] }}_pdim;
+      {%- endif -%}
+   {%- endfor -%} {#- apidef.f -#}
+   {%- for fkey,fvalue in f[f['name'] == value['name']].iterrows()
+       if fvalue['type'] == 'css' %}
+  strncpy({{ fvalue['arg'] }}_sst,(char *) {{ fvalue['arg'] }} + 1,(unsigned char) {{ fvalue['arg'] }}[0]);
+  {{ fvalue['arg'] }}_sst[(unsigned char) {{ fvalue['arg'] }}[0]] = '\0';
+   {%- endfor -%} {#- apidef.f -#}
+   {%- for fkey,fvalue in f[f['name'] == value['name']].iterrows()
+       if fvalue['type'] == 'osi' %}
+  GDXSTRINDEXPTRS_INIT({{ fvalue['arg'] }},{{ fvalue['arg'] }}_pdim); /* assign pdim */
+   {%- endfor -%} {#- apidef.f -#}
+   {%- for fkey,fvalue in f[f['name'] == value['name']].iterrows()
+       if fvalue['type'] == 'csi' %}
+  GDXSTRINDEXPTRS_INIT({{ fvalue['arg'] }}_dim,{{ fvalue['arg'] }}_pdim); /* assign pdim */
+   {%- endfor -%} {#- apidef.f -#}
+   {%- for fkey,fvalue in f[f['name'] == value['name']].iterrows()
+       if fvalue['type'] == 'csi' -%}
+      {%- if apidef.MaxDimStyle is not defined or apidef.MaxDimStyle.elements.shape[0] == 0 %}
+  {{ fvalue['arg'] }}_sidim = GMS_MAX_INDEX_DIM;
+      {%- elif apidef.Prefix == 'gmd' and apidef.MaxDimStyle.elements[apidef.MaxDimStyle.elements['prefix']=='gmd'].shape[0] > 0 -%}
+         {%- if (apidef.useADim is defined) and (apidef.useADim.elements[api.useADim.elements['name'] == value['name']]) -%}
+           {%- if fvalue['name'] in apidef.useADim.elements['name'].tolist()  %}
+  {{ fvalue['arg'] }}_sidim = *aDim;
+           {%- else                                                           %}
+  {{ fvalue['arg'] }}_sidim = aDim;
+           {%- endif -%}
+         {%- else                                                                                                         %}
+  if(!gmdSymbolDim(gmd,symPtr,&{{ fvalue['arg'] }}_sidim)) return 0;
+         {%- endif -%}
+      {#- elif apidef.Prefix == 'gdx' and apidef.MaxDimStyle.elements[apidef.MaxDimStyle.elements]=='gdx'  -%}
+$        abort MaxDimStyle = gdx needs extra work for C Library  -#}
+       {%- endif %}
+  for({{ fvalue['arg'] }}_cnt=0;{{ fvalue['arg'] }}_cnt<{{ fvalue['arg'] }}_sidim;{{ fvalue['arg'] }}_cnt++)
+  {
+    strncpy({{ fvalue['arg'] }}_pdim[{{ fvalue['arg'] }}_cnt],(char *) {{ fvalue['arg'] }} + {{ fvalue['arg'] }}_cnt*256 + 1,(unsigned char) {{ fvalue['arg'] }}[{{ fvalue['arg'] }}_cnt*256]);
+    {{ fvalue['arg'] }}_dim[{{ fvalue['arg'] }}_cnt][(unsigned char) {{ fvalue['arg'] }}[{{ fvalue['arg'] }}_cnt*256]] = '\0';
+  }
+   {%- endfor -%} {#- apidef.f -#}
+   {%- if value['type'] != 'void' %}
+  {{ value['name'] }}_result = {{ value['name'] }}({{ dobject(pre) }}
+   {%- else                       %}
+  {{ value['name'] }}({{ dobject(pre) }}
+   {%- endif -%} 
+   {%- for fkey,fvalue in f[f['name'] == value['name']].iterrows() -%}
+      {%- if fvalue['type'] == 'css'           -%} ,{{ fvalue['arg'] }}_sst
+      {%- elif fvalue['type'] in ['oss','xss'] -%} ,{{ fvalue['arg'] }}_sst
+      {%- elif fvalue['type'] == 'csi'         -%} ,(const char **) {{ fvalue['arg'] }}_pdim
+      {%- elif fvalue['type'] == 'osi'         -%} , {{ fvalue['arg'] }}_pdim
+      {%- else                                 -%} ,{{ fvalue['arg'] }}
+      {%- endif -%}
+      {%- if fvalue['type'] == 'xss' -%} ,255
+      {%- endif -%}
+   {%- endfor -%} {#- apidef.f -#}
+);
+   {%- for fkey,fvalue in f[f['name'] == value['name']].iterrows() 
+       if fvalue['type'] in ['oss','xss'] %}
+  {{ fvalue['arg'] }}_local = {{ fvalue['arg'] }}+1;
+  strncpy({{ fvalue['arg'] }}_local,{{ fvalue['arg'] }}_sst,(strlen({{ fvalue['arg'] }}_sst)>255?255:strlen({{ fvalue['arg'] }}_sst)));
+  {{ fvalue['arg'] }}[0] = strlen({{ fvalue['arg'] }}_sst);
+   {%- endfor -%} {#- apidef.f -#}
+   {%- if value['type'] != 'void' %}
+  return {{ value['name'] }}_result;
+   {%- endif %}
+}
+  {% endfor -%} {# apidef.tfunc -#}
+{%- if apidef.availifdefs %}
+#endif
+{%- endif-%}
+{%- endfor -%} {# pre #}
+
+{%- if not apidef.NOFORTRANCB -%}
+{%- for pre in apidef.pre.elements['prefix'].tolist()  -%}
+  {%- if apidef.availifdefs %}
+#ifdef HAVE_{{ pre.upper() }}
+  {%- endif %}
+  {#- set dobject = apidef.DObject.elements[apidef.DObject.elements['prefix']==pre]['text'].iloc[0] -#}
+  {%- set entmp = apidef.enp.elements[apidef.enp.elements['prefix']==pre]['element'].tolist()       -%}
+  {%- set prefix  = apidef.pre.elements[apidef.pre.elements['prefix']==pre]['text'].iloc[0]         -%}
+  {#- set counter = namespace(value=0) -#}
+  {%- if apidef.fpf.elements.shape[0] > 0 -%}
+    {%- set fpf = apidef.fpf.elements[apidef.fpf.elements['def'].isin(entmp)]['def'].tolist()  -%}
+    {%- if fpf|length > 0 -%}
+      {%- set fm  = apidef.FuncMap.elements['def'].isin(fpf)                           -%}
+      {%- set tfunc = apidef.tfunc.elements[apidef.tfunc.elements['name'].isin(entmp)] -%}
+      {%- for key, value in tfunc[tfunc['name'].isin(fpf)].iterrows() if fm.shape[0] > 0 %}
+
+{{ FFunctionDeclaration(prefix.upper(), value['type'], value['name'], dobject(pre)) }};
+{{ FFunctionDeclaration(prefix.upper(), value['type'], value['name'], dobject(pre)) }}
+{
+         {%- set fentmp = apidef.f.elements[apidef.f.elements['name'] == value['name']] -%}
+         {%- set f      = fentmp[fentmp['pos'].isin(tpp)]                               -%}
+         {%- for k,v in f[f['type']=='funcptr'].iterrows()  %}
+         {%- if apidef.Prefix == 'gdx' -%}
+               setCallByRef({{ dobject(pre) }}, "{{ v['name'] }}_{{ v['arg'] }}", 1);
+         {%- else -%}
+            {{ dobject(pre) }}->{{ v['name'] }}_{{ v['arg'] }}_CallByRef = 1;
+         {%- endif -%}
+         {%- endfor -%}
+{#-
+*      put$sum(f(fpf,tpp,ea,'FuncPtr'),1) / '  cbrec_t *cbnew;' /;
+*      if(sum(f(fpf,tpp,ea,'FuncPtr'),1),
+*         put '  if(cblast == NULL)' /
+*             '  {' /
+*             '    cbfirst = (cbrec_t *)malloc(sizeof(cbrec_t));' /
+*             '    cbfirst->ID   = ' DObject.te(pre) ';' /
+*             '    cbfirst->next = NULL;' /
+*             '    cblast        = cbfirst;' /
+*         loop(f(fpf,tpp,ea,'FuncPtr'),
+*            put '     cbfirst->' fpf.tl '_' ea.tl '    = ' ea.tl ';' /);
+*         put '  }' /
+*             '  else' /
+*             '  {' /
+*             '    cbnew = cbfirst;' /
+*             '    while(cbnew != NULL)' /
+*             '    {' /
+*             '      if(cbnew->ID == ' DObject.te(pre) ')' /
+*             '      {' /
+*         loop(f(fpf,tpp,ea,'FuncPtr'),
+*            put '        cbnew->' fpf.tl '_' ea.tl '    = ' ea.tl ';' /);
+*         put '        break;' /
+*             '      }' /
+*             '      else' /
+*             '        cbnew = cbnew->next;' /
+*             '    };' /
+*             '    if(cbnew == NULL)' /
+*             '    {' /
+*             '      cbnew = (cbrec_t *)malloc(sizeof(cbrec_t));' /
+*             '      cbnew->ID    = ' DObject.te(pre) ';' /
+*             '      cbnew->next  = NULL;' /
+*             '      cblast->next = cbnew;' /
+*             '      cblast       = cbnew;' /
+*         loop(f(fpf,tpp,ea,'FuncPtr'),
+*            put '      cbnew->' fpf.tl '_' ea.tl '    = ' ea.tl ';' /);
+*         put '    }' /
+*             '  }' /;
+*      );
+#}
+         {%- if value['type'] != 'void' %}
+  return
+         {%- else                       %}
+{{ prettyWhiteSpace(2) }}
+         {% endif -%}
+         {%- set funcmap = apidef.FuncMap.elements[apidef.FuncMap.elements['def']==value['name']] -%}
+         {%- if value['type'] == 'funcptr' %}
+            {%- for fmkey,fmvalue in funcmap.iterrows() -%}
+({{ fmvalue['name'] }}_F_t)
+            {%- endfor -%}
+         {%- endif %} {{ value['name'] }}({{ dobject(pre) }}
+         {%- set f = apidef.f.elements[apidef.f.elements['pos'].isin(tpp)] -%}
+         {%- for fkey,fvalue in f[f['name']==value['name']].iterrows() -%}
+, 
+            {%- if fvalue['type'] == 'funcptr' -%}
+               {%- for fmkey,fmvalue in funcmap.iterrows() %} ({{ fmvalue['name'] }}_t)
+               {%- endfor -%}
+            {%- endif %} {{ fvalue['arg'] }}
+         {%- endfor -%} 
+{#- *         put$sameas('FuncPtr',taa) ', ' DObject.te(pre)); -#}
+);
+}
+      {%- endfor -%}
+    {%- endif -%}  {#- fpf.shape[0] > 0 -#}
+  {%- endif -%}  {#- apidef.fpf.elements.shape[0] > 0 -#}
+  {%- if apidef.availifdefs %}
+#endif
+  {%- endif %}
+{%- endfor -%} {#- pre #}
+{%- endif -%} {#- apidef.NOFORTRANCB #}
+
+{%- for pre in apidef.pre.elements['prefix'].tolist() %}
+  {%- if apidef.availifdefs %}
+#ifdef HAVE_{{ pre.upper() }}
+  {%- endif %}
+  {%- if apidef.tprop.elements.shape[0] > 0 %}
+    {%- set dobj = dobject(pre) -%}
+    {%- set entmp = apidef.enp.elements[apidef.enp.elements['prefix']==pre]['element'].tolist()       -%}
+    {%- set prefix  = apidef.pre.elements[apidef.pre.elements['prefix']==pre]['text'].iloc[0]         -%}
+    {%- for e in apidef.tprop.elements[apidef.tprop.elements['name'].isin(entmp)]['name'].tolist() %}
+       {%- for key,value in apidef.pn.elements[apidef.pn.elements['name']==e].iterrows()  %}
+{# $ontext
+         put / / '%PrefixU%_API '
+         if(sameas('r',pactions),
+            if(not sameas(ta,'FuncPtr'),
+               put CType.te(ta) ' ' CCall.te(ta) ' %PrefixU%_CALLCONV C__' entmp.tl '(' DObject.te(pre) 'Rec_t *' DObject.te(pre) ')';
+            else
+               loop(FuncMap(entmp,'p',enn), put enn.tl '_t %PrefixU%_CALLCONV C__' entmp.tl '(' DObj
+ect.te(pre) 'Rec_t *' DObject.te(pre) ')'
+               );
+            );
+         else
+            if(not sameas(ta,'FuncPtr'),
+               put 'void %PrefixU%_CALLCONV C__' entmp.tl 'Set(' DObject.te(pre) 'Rec_t *' DObject.te(pre) ', ' CType.te(ta) ' ' CCall.te(ta) 'x)';
+            else
+               loop(FuncMap(entmp,'p',enn), put 'void %PrefixU%_CALLCONV C__' entmp.tl 'Set(' DObject.te(pre) 'Rec_t *' DObject.te(pre) ',' enn.tl '_t x)';
+               );
+            );
+         );
+$offtext #}
+{{ CPropertyDeclaration(prefix.upper(), value['type'], value['name'], value['pactions'], dobj) }};
+{{ CPropertyDeclaration(prefix.upper(), value['type'], value['name'], value['pactions'], dobj) }}
+{
+         {%- if value['pactions'] == 'r' %}
+            {%- if value['type'] != 'funcptr' %}
+  return {{ value['name']  }}({{ dobj }});
+            {%- else                          -%}
+              {%- for fmkey,fmvalue in funcmap[funcmap['fpos']=='p'].iterrows() %}
+  return {{ value['name']  }}({{ dobj }});
+              {%- endfor -%}
+            {%- endif -%}
+         {%- else                    %}
+            {%- if value['type'] != 'funcptr' %}
+  {{ value['name']  }}Set({{ dobj }},x);
+            {%- else                          -%}
+               {%- for fmkey,fmvalue in funcmap[funcmap['fpos']=='p'].iterrows() %}
+  {{ value['name']  }}Set({{ dobj }},x);
+               {%- endfor -%}
+            {%- endif -%}
+         {%- endif %}
+}
+       {%- endfor %}
+    {%- endfor %}
+  {%- endif %} {#- apidef.tprop-#}
+
+  {%- if apidef.availifdefs %}
+#endif
+  {%- endif %}
+{%- endfor %}
+
+#endif
+
+{% endblock -%}

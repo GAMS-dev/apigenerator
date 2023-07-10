@@ -1,0 +1,43 @@
+{%- extends "cbase.template.j2" -%}
+
+{%- set clibuse = false -%}
+{%- if apidef.CLibUse.elements.shape[0] > 0 and 
+       apidef.Prefix not in apidef.CLibUse.elements['prefix'].tolist() -%}
+    {%- set clibuse = true -%}
+{%- endif -%}
+{%- set const = false -%}
+{%- if apidef.gcon.elements.shape[0] > 0 or apidef.gstrcon.elements.shape[0] > 0 -%}
+    {%- set const = true %}-
+{%- endif -%}
+
+{%- block header -%}
+{%- endblock -%}
+
+{%- block content -%}
+{%- if (not clibuse) and (const) %}
+#define {{ apidef.Prefix.upper() }}APIVERSION {{ apidef.APIVersion }}
+{% for key,value in apidef.cname.elements.iterrows() %}
+enum {{ value['group'] }} {
+    {%- set counter = namespace(pos = 1) -%}
+    {%- for gkey,gvalue in apidef.gcon.elements[apidef.gcon.elements['group']==value['group']].iterrows() 
+        if apidef.gcon.elements.shape[0] > 0 -%}
+        {%- if counter.pos > 1 -%} , {%- endif -%}
+        {%- set len = value['maxlen'] - gvalue['len'] %}
+  {{ gvalue['constant'] }}{{ prettyWhiteSpace(len) }} = {{ gvalue['value'] }}
+        {%- set counter.pos = counter.pos + 1 -%}
+    {%- endfor -%} {#- apidef.gcon #}  };
+{%- endfor %}
+
+{%- for key,value in apidef.csname.elements.iterrows() -%}
+    {%- set counter = namespace(pos = 1) -%}
+    {%- for gkey,gvalue in apidef.gstrcon.elements[apidef.gstrcon.elements['group']==value['group']].iterrows() 
+        if apidef.gstrcon.elements.shape[0] > 0 -%}
+        {%- set len = value['maxlen'] - gvalue['len'] %}
+#define {{ gvalue['constant'] }}{{ prettyWhiteSpace(len) }} "{{ gvalue['value'] }}"
+        {%- if counter.pos == 1 %} /* {{ value['group'] }} */  {%- endif -%}
+        {%- set counter.pos = counter.pos + 1 -%}
+    {%- endfor -%} {#- apidef.gstrcon -#}
+{%- endfor %}
+
+{%- endif %}
+{% endblock %}

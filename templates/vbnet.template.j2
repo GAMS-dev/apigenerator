@@ -1,0 +1,973 @@
+{%- extends "vbbase.template.j2" -%}
+
+{%- block header -%}
+Imports System.Runtime.InteropServices
+Imports System.Text
+
+Module {{ apidef.vbnetCall }}
+' Visual Basic .net procedure wrapper {{ api.generatedstr }}
+{%- endblock -%}
+
+{%- block content %}
+    Dim extHandle As Boolean
+
+    <DllImport("kernel32.dll", CharSet:=CharSet.Auto, SetLastError:=True)> _
+    Public Function LoadLibrary(<[In](), MarshalAs(UnmanagedType.LPTStr)> ByVal lpFileName As String) As IntPtr
+    End Function
+    <DllImport("kernel32.dll", ExactSpelling:=True, SetLastError:=True)> _
+    Public Function GetProcAddress(ByVal hmodule As IntPtr, ByVal procedureName As String) As IntPtr
+    End Function
+    <DllImport("kernel32.dll", CharSet:=CharSet.Auto, SetLastError:=True)> _
+    Friend Function FreeLibrary(ByVal hModule As IntPtr) As Boolean
+    End Function
+
+{# write constants -#}
+{%- for key,value in apidef.cname.elements.iterrows() %}
+
+    {%- set counter = namespace(cpos = 1) -%}
+    {%- for gkey,gvalue in apidef.gcon.elements[apidef.gcon.elements['group']==value['group']].iterrows()
+        if apidef.gcon.elements.shape[0] > 0 -%}
+        {%- set len = value['maxlen'] - gvalue['len'] %}
+    Public Const {{ gvalue['constant'] }}{{ prettyWhiteSpace(len) }} = {{ gvalue['value']}}  '{{ value['group'] }}
+    {%- endfor -%} {#- apidef.gcon #}
+{% endfor -%} {#- apidef.cname #}
+
+{#- write string constants -#}
+{%- for key,value in apidef.csname.elements.iterrows() %}
+    {%- set counter = namespace(cpos = 1) -%}
+    {%- for gkey,gvalue in apidef.gstrcon.elements[apidef.gstrcon.elements['group']==value['group']].iterrows() 
+        if apidef.gstrcon.elements.shape[0] > 0 -%}
+        {%- set len = value['maxlen'] - gvalue['len'] %}
+    Public Const {{ gvalue['constant'] }}{{ prettyWhiteSpace(len) }} = "{{ gvalue['value']}}"
+        {%- if counter.cpos == 1 %}   '{{ value['group'] }}  {%- endif -%}
+        {%- set counter.cpos = counter.cpos + 1 -%}
+    {%- endfor -%} {#- apidef.gstrcon #}
+{% endfor -%} {#- apidef.csname -#}
+
+{%- if (apidef.haveTypedefs.elements.shape[0] > 0 and 
+        apidef.Prefix in apidef.haveTypedefs.elements['prefix'].tolist()) %}
+    {%- for key,value in apidef.tPtrFunc.elements.iterrows() %}
+    Public Delegate
+       {%- if value['type'] == 'void' %} Sub
+       {%- else                       %} Function
+       {%- endif %} {{ value['name'] }}(
+        {%- if apidef.PtrF.elements.shape[0] > 0 -%}
+            {%- set counter = namespace(argpos = 1)  -%}
+            {%- set tpp = datadef.tpp.elements['tp'] -%}
+            {%- set ptrf = apidef.PtrF.elements[apidef.PtrF.elements['name']==value['name']] -%}
+            {%- set ptrftpp = ptrf[ptrf['apos'].isin(tpp)] -%}
+            {%- for fkey,fvalue in ptrftpp.iterrows() -%}
+                   {%- if fvalue['type'] == 'osi'                                  -%} {{ VBNetCall(fvalue['type']) }} {{ fvalue['arg'] }} As Byte
+                   {%- elif fvalue['type'] == 'bool'                               -%} ByVal {{ fvalue['arg'] }} As Integer
+                   {%- elif fvalue['type'] in datadef.tapc.elements['ta'].tolist() -%} ByVal {{ fvalue['arg'] }} As String
+                   {%- elif fvalue['type'] in datadef.taar.elements['ta'].tolist() -%} ByVal {{ fvalue['arg'] }} As IntPtr
+                   {%- else                                                        -%} {{ VBNetCall(fvalue['type']) }} {{ fvalue['arg'] }} As {{ VBNetType(fvalue['type']) }}
+                   {%- endif -%}
+                   {%- if counter.argpos < ptrftpp.shape[0] -%} , {%- endif -%}
+                   {%- set counter.argpos = counter.argpos + 1 -%}
+            {%- endfor -%} {#- apidef.PtrF -#}
+        {%- endif -%}
+)
+        {%- if value['type'] != 'void' %}
+            {%- if value['type'] in datadef.tapc.elements['ta'].tolist() %} As String
+            {%- else                                                      %} As {{ VBNetType(value['type']) }}
+            {%- endif %}
+        {%- endif %}
+    {%- endfor -%} {#- apidef.tPtrFunc #}
+
+
+{%- endif -%} {#- haveTypedefs #}
+
+{%- if apidef.ulp.elements.shape[0] > 0 and apidef.Prefix in apidef.ulp.elements['prefix'].tolist() %}
+
+    <UnmanagedFunctionPointer(CallingConvention.StdCall)> _
+    Private Delegate Sub {{ apidef.Prefix }}SetLoadPath_t(ByVal s As String)
+    Private dll_{{ apidef.Prefix }}SetLoadPath As {{ apidef.Prefix }}SetLoadPath_t
+    Private Sub d_{{ apidef.Prefix }}SetLoadPath(ByVal s As String)
+    End Sub
+    <UnmanagedFunctionPointer(CallingConvention.StdCall)> _
+    Private Delegate Sub {{ apidef.Prefix }}GetLoadPath_t(ByRef s As Byte)
+    Private dll_{{ apidef.Prefix }}GetLoadPath As {{ apidef.Prefix }}GetLoadPath_t
+    Private Sub d_{{ apidef.Prefix }}GetLoadPath(ByRef s As Byte)
+    End Sub
+{% endif -%} {#- apidef.ulp #}
+
+{#- write functions -#}
+{%- for key,value in apidef.tfunc.elements.iterrows() %}
+    <UnmanagedFunctionPointer(CallingConvention.StdCall)> _
+    Private Delegate
+    {%- if value['type'] in ['void','oss'] %} Sub{{ prettyWhiteSpace(1) }}
+    {%- else                               %} Function{{ prettyWhiteSpace(1) }}
+    {%- endif -%} {{ value['name'] }}_t(ByVal p{{ apidef.Prefix }} As IntPtr
+    {%- set tpp = datadef.tpp.elements['tp'] -%}
+    {%- set f = apidef.f.elements[apidef.f.elements['name']==value['name']]-%}
+    {%- for fkey,fvalue in f[f['pos'].isin(tpp)].iterrows() if f.shape[0] > 0 -%}
+       {%- if fvalue['type'] != 'funcptr' -%}
+            {%- if (fvalue['name'] in apidef.fost.elements['name'].tolist() and 
+                    fvalue['type'] in datadef.tass.elements['ta'].tolist()  and
+                    fvalue['type'] != 'css')    -%}
+               {%- if fvalue['type'] == 'osi' -%} , ByRef {{ fvalue['arg'] }} As byte
+               {%- else                       -%} , {{ fvalue['arg'] }} As StringBuilder
+               {%- endif -%}
+               {%- if fvalue['type'] == 'xss' -%} , ByVal {{ fvalue['arg'] }}_i As Integer
+               {%- endif -%}
+            {%- else                           -%}
+               {%- if fvalue['type'] == 'csi'              -%} , {{ VBNetCall(fvalue['type']) }} {{ fvalue['arg'] }} As {{ VBNetType(fvalue['type']) }} 
+               {%- elif fvalue['type'] in ['bool','vbool'] -%} , {{ VBNetCall(fvalue['type']) }} {{ fvalue['arg'] }} As Integer
+               {%- else                                    -%} , {{ VBNetCall(fvalue['type']) }} {{ fvalue['arg'] }} As {{ VBNetType(fvalue['type']) }} 
+               {%- endif -%}
+            {%- endif -%}
+       {%- else                          -%}
+          {%-if apidef.FuncMap.elements.shape[0] > 0 -%}
+            {%- set funcmap   = apidef.FuncMap.elements[apidef.FuncMap.elements['fpos'] == fvalue['pos']] -%}
+            {%- for fmkey,fmvalue in funcmap[funcmap['def']==fvalue['name']].iterrows()
+                if funcmap.shape[0] > 0 -%}
+, {{ VBNetCall(fvalue['type']) }} {{ fvalue['arg'] }} As {{ fmvalue['name'] }}
+            {%- endfor %}
+          {%- endif -%}
+       {%- endif -%}
+    {% endfor -%} {#- f -#}
+    {%- if value['type'] == 'oss' -%}, sst_result As StringBuilder
+    {%- endif -%}
+)
+    {%- if value['type'] not in ['void','oss'] %}
+        {%- if value['type'] in datadef.tapc.elements['ta'].tolist() %} As String
+        {%- elif value['type'] == 'bool'                             %} As Integer
+        {%- elif value['type'] != 'funcptr'                          %} As {{ VBNetType(value['type']) }} 
+        {%- else                                                    -%}
+            {%- for fmkey,fmvalue in apidef.FuncMap.elements[apidef.FuncMap.elements['def']==value['name']].iterrows()
+                if apidef.FuncMap.elements.shape[0] > 0 %} As {{ fmvalue['name'] }}
+            {%- endfor %}
+        {%- endif -%}
+    {%- endif %}
+    Private dll_{{ value['name'] }} As {{ value['name'] }}_t
+    Private
+    {%- if value['type'] in ['void','oss'] %} Sub
+    {%- else                               %} Function
+    {%- endif %} d_{{ value['name'] }}(ByVal p{{ apidef.Prefix }} As IntPtr
+
+    {%- set f = apidef.f.elements[apidef.f.elements['name']==value['name']]-%}
+    {%- for fkey,fvalue in f[f['pos'].isin(tpp)].iterrows() if f.shape[0] > 0 -%}
+       {%- if fvalue['type'] != 'funcptr' -%} 
+            {%- if (fvalue['name'] in apidef.fost.elements['name'].tolist() and 
+                    fvalue['type'] in datadef.tass.elements['ta'].tolist()  and
+                    fvalue['type'] != 'css')    -%}
+               {%- if fvalue['type'] == 'osi' -%} , ByRef {{ fvalue['arg'] }} As byte
+               {%- else                       -%} , {{ fvalue['arg'] }} As StringBuilder
+               {%- endif -%}
+               {%- if fvalue['type'] == 'xss' -%} , ByVal {{ fvalue['arg'] }}_i As Integer
+               {%- endif -%}
+            {%- else                                                                                                    -%}
+               {%- if fvalue['type'] == 'csi'              -%} , {{ VBNetCall(fvalue['type']) }} {{ fvalue['arg'] }} As {{ VBNetType(fvalue['type']) }} 
+               {%- elif fvalue['type'] in ['bool','vbool'] -%} , {{ VBNetCall(fvalue['type']) }} {{ fvalue['arg'] }} As Integer
+               {%- else                                    -%} , {{ VBNetCall(fvalue['type']) }} {{ fvalue['arg'] }} As {{ VBNetType(fvalue['type']) }} 
+               {%- endif -%}
+            {%- endif -%}
+       {%- else                           -%}
+          {%-if apidef.FuncMap.elements.shape[0] > 0 -%}
+            {%- set funcmap   = apidef.FuncMap.elements[apidef.FuncMap.elements['fpos'] == fvalue['pos']] -%}
+            {%- for fmkey,fmvalue in funcmap[funcmap['def']==fvalue['name']].iterrows()
+                if funcmap.shape[0] > 0 -%}
+, {{ VBNetCall(fvalue['type']) }} {{ fvalue['arg'] }} As {{ fmvalue['name'] }}
+            {%- endfor %}
+          {%- endif -%}
+       {%- endif -%}
+    {% endfor -%} {#- f -#}
+    {%- if value['type'] == 'oss' -%}, sst_result As StringBuilder
+    {%- endif -%}
+)
+    {%- if value['type'] not in ['void','oss'] %}
+        {%- if value['type'] in datadef.tapc.elements['ta'].tolist() %} As String
+        {%- elif value['type'] == 'bool'                             %} As Integer
+        {%- elif value['type'] != 'funcptr'                          %} As {{ VBNetType(value['type']) }} 
+        {%- else                                                    -%}
+            {%- for fmkey,fmvalue in apidef.FuncMap.elements[apidef.FuncMap.elements['def']==value['name']].iterrows()
+                if apidef.FuncMap.elements.shape[0] > 0 %} As {{ fmvalue['name'] }}
+            {%- endfor %}
+        {%- endif -%}
+    {%- endif %}
+        {{ apidef.Prefix }}ErrorHandling("{{ value['name'] }} could not be loaded")
+    {%- if value['type'] not in ['void','oss'] %}
+        Return {{ VBNetDefVal(value['type']) }}
+    {%- endif %}
+    {%- if value['type'] in ['void','oss'] %}
+    End Sub
+    {%- else                               %}
+    End Function
+    {%- endif %}
+
+{%- endfor -%} {#- apidef.tfunc #}
+
+{# write properties -#}
+{%- for pkey,pvalue in apidef.pn.elements.iterrows() %}
+    <UnmanagedFunctionPointer(CallingConvention.StdCall)> _
+    Private Delegate 
+    {%- if pvalue['pactions']=='r' -%}
+        {%- if pvalue['type'] == 'oss'  %} Sub
+        {%- else                        %} Function
+        {%- endif %} {{ pvalue['name'] }}_t(ByVal p{{ apidef.Prefix }} As IntPtr
+        {%- if pvalue['type'] == 'oss' -%} , sst_result As StringBuilder 
+        {%- endif -%}
+)
+        {%- if pvalue['type'] not in ['void','oss'] -%} 
+            {%- if pvalue['type'] in datadef.tapc.elements['ta'].tolist() %} As String
+            {%- elif pvalue['type'] == 'bool'                             %} As Integer
+            {%- elif pvalue['type'] != 'funcptr'                          %} As {{ VBNetType(pvalue['type']) }}
+            {%- else                                                     -%} YYY
+               {%- for fmkey,fmvalue in apidef.FuncMap.elements[apidef.FuncMap.elements['def']==pvalue['name']].iterrows()
+                   if apidef.FuncMap.elements.shape[0] > 0 -%}
+                   {%- if fmvalue['fpos']=='p' %} As '{{ fmvalue['name'] }}
+                   {%- endif -%}
+               {%- endfor -%}
+            {%- endif -%}
+        {%- endif -%}
+    {%- else                       %} Sub {{ pvalue['name'] }}Set_t(ByVal p{{ apidef.Prefix }} As IntPtr,
+        {%- if pvalue['type'] != 'funcptr' -%}
+            {%- if pvalue['type'] == 'oss'    %} ByVal x As {{ VBNetType(pvalue['type']) }})
+            {%- elif pvalue['type'] == 'bool' %} ByVal x As Integer)
+            {%- else                          %} {{ VBNetCall(pvalue['type']) }} x As {{ VBNetType(pvalue['type']) }})
+            {%- endif -%}
+        {%- else                           -%}
+            {%- for fmkey,fmvalue in apidef.FuncMap.elements[apidef.FuncMap.elements['def']==pvalue['name']].iterrows()
+                if apidef.FuncMap.elements.shape[0] > 0 -%}
+                {%- if fmvalue['fpos']=='p' %} ByVal x As {{ fmvalue['name'] }})
+                {%- endif -%}
+            {%- endfor -%}
+        {%- endif -%}
+    {%- endif -%}
+    {%- if pvalue['pactions']=='r' %}
+    Private dll_{{ pvalue['name'] }} As {{ pvalue['name'] }}_t
+    {%- else                       %}
+    Private dll_{{ pvalue['name'] }}Set As {{ pvalue['name'] }}Set_t
+    {%- endif %}
+    Private 
+    {%- if pvalue['pactions']=='r' -%}
+        {%- if pvalue['type'] == 'oss'    %} Sub
+        {%- else                          %} Function
+        {%- endif %} d_{{ pvalue['name'] }}(ByVal p{{ apidef.Prefix }} As IntPtr
+        {%- if pvalue['type'] == 'oss'    %}, sst_result As StringBuilder
+        {%- endif -%}
+)
+        {%- if pvalue['type'] not in ['void','oss'] -%}
+            {%- if pvalue['type'] in datadef.tapc.elements['ta'].tolist() %} As String
+            {%- elif pvalue['type'] == 'bool'                             %} As Integer
+            {%- elif pvalue['type'] != 'funcptr'                          %} As {{ VBNetType(pvalue['type']) }}
+            {%- else                                                     -%}
+                {%- for fmkey,fmvalue in apidef.FuncMap.elements[apidef.FuncMap.elements['def']==pvalue['name']].iterrows()
+                    if apidef.FuncMap.elements.shape[0] > 0 -%}
+                    {%- if fmvalue['fpos']=='p' %} As {{ fmvalue['name'] }}
+                    {%- endif -%}
+                {%- endfor -%}
+            {%- endif -%}
+        {%- endif -%}
+    {%- else                        %} Sub d_{{ pvalue['name'] }}Set(ByVal p{{ apidef.Prefix }} As IntPtr,
+        {%- if pvalue['type'] != 'funcptr' %}
+            {%- if pvalue['type'] == 'oss'    %} ByVal x As {{ VBNetType(pvalue['type']) }})
+            {%- elif pvalue['type'] == 'bool' %} ByVal x As Integer)
+            {%- else                          %} {{ VBNetCall(pvalue['type']) }} x As {{ VBNetType(pvalue['type']) }})
+            {%- endif -%}
+        {%- else                           %}
+            {%- for fmkey,fmvalue in apidef.FuncMap.elements[apidef.FuncMap.elements['def']==pvalue['name']].iterrows()
+                if apidef.FuncMap.elements.shape[0] > 0 -%}
+                {%- if fmvalue['fpos']=='p' %} ByVal x As {{ fmvalue['name'] }})
+                {%- endif -%}
+            {%- endfor -%}
+        {%- endif -%}
+    {%- endif %}
+        {{ apidef.Prefix }}ErrorHandling("{{ pvalue['name'] }}
+    {%- if pvalue['pactions']=='w' -%} Set
+    {%- endif %} could not be loaded")
+    {%- if (pvalue['pactions']=='r') and (pvalue['type'] not in ['void','oss']) %}
+        Return {{ VBNetDefVal(pvalue['type']) }}
+    End Function
+    {%- else                                                                    %}
+    End Sub
+    {%- endif -%}
+{%- endfor -%} {#- adidef.pn  #}
+
+    <UnmanagedFunctionPointer(CallingConvention.StdCall)> _
+    Private Delegate Sub {{ apidef.prexfix.lower() }}create_t(ByRef p{{ apidef.Prefix }} As IntPtr)
+    Private {{ apidef.prexfix.lower() }}create As {{ apidef.prexfix.lower() }}create_t
+{%- set clibuse = false -%}
+{%- if apidef.CLibUse.elements.shape[0] > 0 -%}
+  {%- if apidef.CLibUse.elements[apidef.CLibUse.elements['prefix']==apidef.Prefix].shape[0] > 0 -%}
+      {%- set clibuse = true -%}
+  {%- endif -%}
+{%- endif -%}
+{%- set usecd = false -%}
+{%- if apidef.UseCD.elements.shape[0] > 0 -%}
+  {%- if apidef.UseCD.elements[apidef.UseCD.elements['prefix']==apidef.Prefix].shape[0] > 0 -%}
+      {%- set usecd = true -%}
+  {%- endif -%}
+{%- endif -%}
+{%- if usecd %}
+    <UnmanagedFunctionPointer(CallingConvention.StdCall)> _
+    Private Delegate Sub {{ apidef.prexfix.lower() }}created_t(ByRef p{{ apidef.Prefix }} As IntPtr, ByVal dirName As String)
+    Private {{ apidef.prexfix.lower() }}created As {{ apidef.prexfix.lower() }}created_t
+{%- endif %}
+    <UnmanagedFunctionPointer(CallingConvention.StdCall)> _
+    Private Delegate Sub {{ apidef.prexfix.lower() }}free_t(ByRef p{{ apidef.Prefix }} As IntPtr)
+    Private {{ apidef.prexfix.lower() }}free As {{ apidef.prexfix.lower() }}free_t
+    <UnmanagedFunctionPointer(CallingConvention.StdCall)> _
+    Private Delegate Function {{ apidef.prexfix.lower() }}apiversion_t(ByVal api As Integer, msg As StringBuilder, ByRef cl As Integer) As Integer
+    Private dll_{{ apidef.prexfix.lower() }}apiversion As {{ apidef.prexfix.lower() }}apiversion_t
+    <UnmanagedFunctionPointer(CallingConvention.StdCall)> _
+    Private Delegate Function {{ apidef.prexfix.lower() }}check_t(ByVal ep As String, ByVal nargs As Integer, ByVal s As Integer(), msg As StringBuilder) As Integer
+    Private dll_{{ apidef.prexfix.lower() }}check As {{ apidef.prexfix.lower() }}check_t
+
+    Public Delegate Function {{ apidef.Prefix }}ErrorCallback_t(ByVal ErrCount As Integer, ByRef Msg As String) As Boolean
+
+    Dim isLoaded As Boolean = False
+    Dim h As IntPtr
+    Dim ScreenIndicator As Boolean = True
+    Dim ExceptionIndicator As Boolean = False
+    Dim ExitIndicator As Boolean = True
+    Dim ErrorCallBack As {{ apidef.Prefix }}ErrorCallback_t = Nothing
+    Dim APIErrorCount As Integer = 0
+
+    Private Function XLibraryLoad(ByVal dllName As String, ByRef errBuf As String) As Boolean
+        Dim symName As String = ""
+        Dim cl As Integer = 0
+        Dim pAddressOfFunctionToCall As IntPtr
+        Dim s(maxdim+1) As Integer
+
+        If (isLoaded) Then Return True
+
+        h = LoadLibrary(dllName)
+
+        If IntPtr.Zero = h Then
+            errBuf = "Could not load shared library " + dllName
+            Return False
+        End If
+
+
+        pAddressOfFunctionToCall = GetProcAddress(h, "{{ apidef.prexfix.lower() }}create")
+        If pAddressOfFunctionToCall <> IntPtr.Zero Then
+            {{ apidef.prexfix.lower() }}create = DirectCast(Marshal.GetDelegateForFunctionPointer(pAddressOfFunctionToCall, GetType({{ apidef.prexfix.lower() }}create_t)), {{ apidef.prexfix.lower() }}create_t)
+        Else
+            symName = "{{ apidef.prexfix.lower() }}create"
+            GoTo symMissing
+        End If
+
+{%- if usecd and clibuse %}
+        pAddressOfFunctionToCall = GetProcAddress(h, "{{ apidef.prexfix.lower() }}created")
+        If pAddressOfFunctionToCall <> IntPtr.Zero Then
+            {{ apidef.prexfix.lower() }}created = DirectCast(Marshal.GetDelegateForFunctionPointer(pAddressOfFunctionToCall, GetType({{ apidef.prexfix.lower() }}created_t)), {{ apidef.prexfix.lower() }}created_t)
+        Else
+            symName = "{{ apidef.prexfix.lower() }}created"
+            GoTo symMissing
+        End If
+{%- endif %}
+{%- if usecd and not clibuse  %}
+        pAddressOfFunctionToCall = GetProcAddress(h, "c{{ apidef.prexfix.lower() }}created")
+        If pAddressOfFunctionToCall <> IntPtr.Zero Then
+            {{ apidef.prexfix.lower() }}created = DirectCast(Marshal.GetDelegateForFunctionPointer(pAddressOfFunctionToCall, GetType({{ apidef.prexfix.lower() }}created_t)), {{ apidef.prexfix.lower() }}created_t)
+        Else
+            symName = "c{{ apidef.prexfix.lower() }}created"
+            GoTo symMissing
+        End If
+{%- endif %}
+        pAddressOfFunctionToCall = GetProcAddress(h, "{{ apidef.prexfix.lower() }}free")
+        If pAddressOfFunctionToCall <> IntPtr.Zero Then
+            {{ apidef.prexfix.lower() }}free = DirectCast(Marshal.GetDelegateForFunctionPointer(pAddressOfFunctionToCall, GetType({{ apidef.prexfix.lower() }}free_t)), {{ apidef.prexfix.lower() }}free_t)
+        Else
+            symName = "{{ apidef.prexfix.lower() }}free"
+            GoTo symMissing
+        End If
+
+{%- if apidef.CLibUse.elements.shape[0] > 0 and apidef.Prefix in apidef.CLibUse.elements['prefix'].tolist()  %}
+
+        pAddressOfFunctionToCall = GetProcAddress(h, "c__{{ apidef.prexfix.lower() }}check")
+        If pAddressOfFunctionToCall <> IntPtr.Zero Then
+            dll_{{ apidef.prexfix.lower() }}check = DirectCast(Marshal.GetDelegateForFunctionPointer(pAddressOfFunctionToCall, GetType({{ apidef.prexfix.lower() }}check_t)), {{ apidef.prexfix.lower() }}check_t)
+        Else
+            symName = "c__{{ apidef.prexfix.lower() }}check"
+            GoTo symMissing
+        End If
+        pAddressOfFunctionToCall = GetProcAddress(h, "c__{{ apidef.prexfix.lower() }}apiversion")
+        If pAddressOfFunctionToCall <> IntPtr.Zero Then
+            dll_{{ apidef.prexfix.lower() }}apiversion = DirectCast(Marshal.GetDelegateForFunctionPointer(pAddressOfFunctionToCall, GetType({{ apidef.prexfix.lower() }}apiversion_t)), {{ apidef.prexfix.lower() }}apiversion_t)
+        Else
+            symName = "c__{{ apidef.prexfix.lower() }}apiversion"
+            GoTo symMissing
+        End If
+{%- else                                                            %}
+
+        pAddressOfFunctionToCall = GetProcAddress(h, "c{{ apidef.prexfix.lower() }}check")
+        If pAddressOfFunctionToCall <> IntPtr.Zero Then
+            dll_{{ apidef.prexfix.lower() }}check = DirectCast(Marshal.GetDelegateForFunctionPointer(pAddressOfFunctionToCall, GetType({{ apidef.prexfix.lower() }}check_t)), {{ apidef.prexfix.lower() }}check_t)
+        Else
+            symName = "c{{ apidef.prexfix.lower() }}check"
+            GoTo symMissing
+        End If
+        pAddressOfFunctionToCall = GetProcAddress(h, "c{{ apidef.prexfix.lower() }}apiversion")
+        If pAddressOfFunctionToCall <> IntPtr.Zero Then
+            dll_{{ apidef.prexfix.lower() }}apiversion = DirectCast(Marshal.GetDelegateForFunctionPointer(pAddressOfFunctionToCall, GetType({{ apidef.prexfix.lower() }}apiversion_t)), {{ apidef.prexfix.lower() }}apiversion_t)
+        Else
+            symName = "c{{ apidef.prexfix.lower() }}apiversion"
+            GoTo symMissing
+        End If
+{%- endif %}
+
+        If {{ apidef.prexfix.lower() }}apiversion({{ apidef.APIVersion }}, errBuf, cl) = 0 Then Return False
+
+{%- if apidef.ulp.elements.shape[0] > 0 and apidef.Prefix in apidef.ulp.elements['prefix'].tolist() %}
+    {%- if apidef.CLibUse.elements.shape[0] > 0 and apidef.Prefix in apidef.CLibUse.elements['prefix'].tolist()  %}
+        pAddressOfFunctionToCall = GetProcAddress(h, "c__{{ apidef.Prefix }}setloadpath")
+        If pAddressOfFunctionToCall <> IntPtr.Zero Then
+            dll_{{ apidef.Prefix }}SetLoadPath = DirectCast(Marshal.GetDelegateForFunctionPointer(pAddressOfFunctionToCall, GetType({{ apidef.Prefix }}SetLoadPath_t)), {{ apidef.Prefix }}SetLoadPath_t)
+        Else
+            symName = "c__{{ apidef.Prefix }}SetLoadPath"
+            GoTo symMissing
+        End If
+        pAddressOfFunctionToCall = GetProcAddress(h, "c__{{ apidef.Prefix }}getloadpath")
+        If pAddressOfFunctionToCall <> IntPtr.Zero Then
+            dll_{{ apidef.Prefix }}GetLoadPath = DirectCast(Marshal.GetDelegateForFunctionPointer(pAddressOfFunctionToCall, GetType({{ apidef.Prefix }}GetLoadPath_t)), {{ apidef.Prefix }}GetLoadPath_t)
+        Else
+            symName = "c__{{ apidef.Prefix }}GetLoadPath"
+            GoTo symMissing
+        End If'
+    {%- else                                                            %}
+        pAddressOfFunctionToCall = GetProcAddress(h, "c{{ apidef.Prefix }}setloadpath")
+        If pAddressOfFunctionToCall <> IntPtr.Zero Then
+            dll_{{ apidef.Prefix }}SetLoadPath = DirectCast(Marshal.GetDelegateForFunctionPointer(pAddressOfFunctionToCall, GetType({{ apidef.Prefix }}SetLoadPath_t)), {{ apidef.Prefix }}SetLoadPath_t)
+        Else
+            symName = "c{{ apidef.Prefix }}SetLoadPath"
+            GoTo symMissing
+        End If
+        pAddressOfFunctionToCall = GetProcAddress(h, "c{{ apidef.Prefix }}getloadpath")
+        If pAddressOfFunctionToCall <> IntPtr.Zero Then
+            dll_{{ apidef.Prefix }}GetLoadPath = DirectCast(Marshal.GetDelegateForFunctionPointer(pAddressOfFunctionToCall, GetType({{ apidef.Prefix }}GetLoadPath_t)), {{ apidef.Prefix }}GetLoadPath_t)
+        Else
+            symName = "c{{ apidef.Prefix }}GetLoadPath"
+            GoTo symMissing
+        End If
+    {%- endif %}
+{%- endif %}
+
+{%- set tpp = datadef.tpp.elements['tp'] -%}
+{%- for key,value in apidef.tfunc.elements.iterrows() %}
+
+        s(0) = {{ taind(value['type']) }}
+    {%- set f = apidef.f.elements[apidef.f.elements['name']==value['name']] -%}
+    {%- set counter = namespace(argpos=0)                                   -%}
+    {%- for fkey,fvalue in f[f['pos'].isin(tpp)].iterrows() if f.shape[0] > 0 -%}
+        {%- set counter.argpos = counter.argpos + 1 -%}
+{{ prettyWhiteSpace(1) }}: s({{ counter.argpos }}) = {{ taind(fvalue['type']) }}
+    {%- endfor -%} {#- f #}
+        If {{ apidef.prexfix.lower() }}check("{{ value['name'] }}", {{ farg(value['name']) }}, s, errBuf) = 0 Then
+            dll_{{ value['name'] }} = AddressOf d_{{ value['name'] }}
+        Else
+            pAddressOfFunctionToCall = GetProcAddress(h, "
+    {%- if apidef.CLibUse.elements.shape[0] > 0 and apidef.Prefix in apidef.CLibUse.elements['prefix'].tolist()  -%}
+        {%- if value['name'] in apidef.enostringa.elements['name'].tolist()  -%} n__
+        {%- else                                                             -%} c__
+        {%- endif -%}
+    {%- else                                                                                                     -%}
+        {%- if value['name'] in apidef.enostringa.elements['name'].tolist()  -%} b
+        {%- else                                                             -%}
+           {%- if value['name'] in apidef.enstring.elements['name'].tolist()  -%} c {%- endif -%}
+        {%- endif -%}
+    {%- endif -%} {{ value['name'].lower() }}")
+            If pAddressOfFunctionToCall <> IntPtr.Zero Then
+                dll_{{ value['name'] }} = DirectCast(Marshal.GetDelegateForFunctionPointer(pAddressOfFunctionToCall, GetType({{ value['name'] }}_t)), {{ value['name'] }}_t)
+            Else
+                symName = "
+    {%- if apidef.CLibUse.elements.shape[0] > 0 and apidef.Prefix in apidef.CLibUse.elements['prefix'].tolist()  %}
+        {%- if value['name'] in apidef.enostringa.elements['name'].tolist()  -%} n__
+        {%- else                                                             -%} c__
+        {%- endif -%}
+    {%- else                                                                                                     -%}
+        {%- if value['name'] in apidef.enostringa.elements['name'].tolist()  -%} b
+        {%- else                                                             -%}
+           {%- if value['name'] in apidef.enstring.elements['name'].tolist()  -%} c {%- endif -%}
+        {%- endif -%}
+    {%- endif -%} {{ value['name'] }}"
+                GoTo symMissing
+            End If
+        End If
+
+{%- endfor -%} {#- tfunc #}
+
+{#- write properties #}
+{% for pkey,pvalue in apidef.pn.elements.iterrows() %}
+
+    {%- if pvalue['pactions']=='r' %}
+        s(0) = {{ taind(pvalue['type']) }}
+        If {{ apidef.prexfix.lower() }}check("{{ pvalue['name'] }}",0,s,errBuf) = 0 Then
+            dll_{{ pvalue['name'] }} = AddressOf d_{{ pvalue['name'] }}
+        Else
+            pAddressOfFunctionToCall = GetProcAddress(h, "
+        {%- if apidef.CLibUse.elements.shape[0] > 0 and apidef.Prefix in apidef.CLibUse.elements['prefix'].tolist() -%} c__
+        {%- else                                                                                                    -%}
+            {%- if pvalue['type'] == 'oss' -%} c {%- endif -%}
+        {%- endif -%}
+{{ pvalue['name'].lower() }}")
+            If pAddressOfFunctionToCall <> IntPtr.Zero Then
+                dll_{{ pvalue['name'] }} = DirectCast(Marshal.GetDelegateForFunctionPointer(pAddressOfFunctionToCall, GetType({{ pvalue['name'] }}_t)), {{ pvalue['name'] }}_t)
+            Else
+                symName = "
+        {%- if apidef.CLibUse.elements.shape[0] > 0 and apidef.Prefix in apidef.CLibUse.elements['prefix'].tolist() -%} c__
+        {%- else                                                                                                    -%}
+            {%- if pvalue['type'] == 'oss' -%} c {%- endif -%}
+        {%- endif -%}
+{{ pvalue['name'] }}"
+                GoTo symMissing
+            End If
+        End If
+
+    {%- else                       %}
+        s(0) = {{ taind('void') }} : s(1) = {{ taind(pvalue['type']) }}
+        If {{ apidef.prexfix.lower() }}check("{{ pvalue['name'] }}Set",1,s,errBuf) = 0 Then
+            dll_{{ pvalue['name'] }}Set = AddressOf d_{{ pvalue['name'] }}Set
+        Else
+            pAddressOfFunctionToCall = GetProcAddress(h, "
+        {%- if apidef.CLibUse.elements.shape[0] > 0 and apidef.Prefix in apidef.CLibUse.elements['prefix'].tolist() -%} c__
+        {%- else                                                                                                    -%}
+            {%- if pvalue['type'] == 'oss' -%} c {%- endif -%}
+        {%- endif -%}
+{{ pvalue['name'].lower() }}set")
+            If pAddressOfFunctionToCall <> IntPtr.Zero Then
+                dll_{{ pvalue['name'] }}Set = DirectCast(Marshal.GetDelegateForFunctionPointer(pAddressOfFunctionToCall, GetType({{ pvalue['name'] }}Set_t)), {{ pvalue['name'] }}Set_t)
+            Else
+                symName = "
+        {%- if apidef.CLibUse.elements.shape[0] > 0 and apidef.Prefix in apidef.CLibUse.elements['prefix'].tolist() -%} c__
+        {%- else                                                                                                    -%}
+            {%- if pvalue['type'] == 'oss' -%} c {%- endif -%}
+        {%- endif -%}
+{{ pvalue['name'] }}Set"
+                GoTo symMissing
+            End If
+        End If
+
+    {%- endif %}
+{%- endfor -%} {#- apidef.tfunc #}
+
+        Return True
+
+symMissing:
+        errBuf = "Could not load symbol '" + symName + "'"
+        Return False
+    End Function ' XLibraryLoad
+
+    Private Function libLoader(ByVal dllPath As String, ByVal dllName As String, ByRef msgBuf As String) As Boolean
+{%- if apidef.CLibUse.elements.shape[0] > 0 and apidef.Prefix in apidef.CLibUse.elements['prefix'].tolist()  %}
+        Const libStem As String = "{{ apidef.CLib }}", libExt = ".dll"
+{%- else                                                                                                     %}
+        Const libStem As String = "{{ apidef.DelphiLib }}", libExt = ".dll"
+{%- endif %}
+        Dim dllNameBuf As String = String.Empty
+        Dim GMS_DLL_SUFFIX As String = String.Empty
+
+        msgBuf = String.Empty
+        If Not isLoaded Then
+            If String.Empty <> dllPath Then
+                If Not dllPath.EndsWith("\") Then
+                    dllNameBuf = dllPath & "\"
+                Else
+                    dllNameBuf = dllPath
+                End If
+            End If
+            If String.Empty <> dllName Then
+                dllNameBuf = dllNameBuf + dllName
+            Else
+                If (8 = IntPtr.Size) Then
+                    GMS_DLL_SUFFIX = "64"
+                End If
+                dllNameBuf = dllNameBuf + libStem + GMS_DLL_SUFFIX + libExt
+            End If
+
+            isLoaded = XLibraryLoad(dllNameBuf, msgBuf)
+            If isLoaded Then
+{%- if apidef.ulp.elements.shape[0] > 0 and apidef.Prefix in apidef.ulp.elements['prefix'].tolist() %}
+                If (Nothing <> dll_{{ apidef.Prefix }}SetLoadPath) And (String.Empty <> dllPath) Then
+                    {{ apidef.Prefix }}SetLoadPath(dllPath)
+                Else ' no setLoadPath call found
+                    Return False
+                End If
+{%- endif %}
+            Else '  library load failed
+                Return False
+            End If
+        End If
+        Return True
+    End Function ' libLoader
+
+    Public Function {{ apidef.Prefix }}GetReady(ByRef msgBuf As String) As Boolean
+        Return libLoader(String.Empty, String.Empty, msgBuf)
+    End Function
+    Public Function {{ apidef.Prefix }}GetReadyD(ByVal dirName As String, ByRef msgBuf As String) As Boolean
+        Return libLoader(dirName, String.Empty, msgBuf)
+    End Function
+    Public Function {{ apidef.Prefix }}GetReadyL(ByVal dirName As String, ByVal libName As String, ByRef msgBuf As String) As Boolean
+        Return libLoader(dirName, libName, msgBuf)
+    End Function
+
+    Public Function {{ apidef.Prefix }}Create(ByRef p{{ apidef.Prefix }} As IntPtr, ByRef msgBuf As String) As Boolean
+        Dim {{ apidef.Prefix }}IsReady As Boolean
+        extHandle = False
+        {{ apidef.Prefix }}IsReady = {{ apidef.Prefix }}GetReady(msgBuf)
+        If Not {{ apidef.Prefix }}IsReady Then
+            Return False
+        End If
+        {{ apidef.prexfix.lower() }}create(p{{ apidef.Prefix }})
+        If p{{ apidef.Prefix }} <> 0 Then
+            {{ apidef.Prefix }}Create = True
+        Else
+            msgBuf = "Error while creating object"
+            {{ apidef.Prefix }}Create = False
+        End If
+    End Function
+
+    ' Keep it only for backward compatibility, was used in older published examples
+    Public Function {{ apidef.Prefix }}CreateX(ByRef p{{ apidef.Prefix }} As IntPtr, ByRef msgBuf As String) As Boolean
+        Return {{ apidef.Prefix }}Create(p{{ apidef.Prefix }}, msgBuf)
+    End Function
+
+    Public Function {{ apidef.Prefix }}CreateD(ByRef p{{ apidef.Prefix }} As IntPtr, ByVal dirName As String, ByRef msgBuf As String) As Boolean
+        Dim {{ apidef.Prefix }}IsReady As Boolean
+        extHandle = False
+        {{ apidef.Prefix }}IsReady = {{ apidef.Prefix }}GetReadyD(dirName, msgBuf)
+        If Not {{ apidef.Prefix }}IsReady Then
+            Return False
+        End If
+        {{ apidef.prexfix.lower() }}create(p{{ apidef.Prefix }})
+        If p{{ apidef.Prefix }} <> 0 Then
+            {{ apidef.Prefix }}CreateD = True
+        Else
+            msgBuf = "Error while creating object"
+            {{ apidef.Prefix }}CreateD = False
+        End If
+    End Function
+
+    Public Function {{ apidef.Prefix }}CreateL(ByRef p{{ apidef.Prefix }} As IntPtr, ByVal dirName As String, ByVal libName As String, ByRef msgBuf As String) As Boolean
+        Dim {{ apidef.Prefix }}IsReady As Boolean
+        extHandle = False
+        {{ apidef.Prefix }}IsReady = {{ apidef.Prefix }}GetReadyL(dirName, libName, msgBuf)
+        If Not {{ apidef.Prefix }}IsReady Then
+            Return False
+        End If
+        {{ apidef.prexfix.lower() }}create(p{{ apidef.Prefix }})
+        If p{{ apidef.Prefix }} <> 0 Then
+            {{ apidef.Prefix }}CreateL = True
+        Else
+            msgBuf = "Error while creating object"
+            {{ apidef.Prefix }}CreateL = False
+        End If
+    End Function
+
+    Public Function {{ apidef.Prefix }}Free(ByRef p{{ apidef.Prefix }} As IntPtr) As Boolean
+        If not extHandle And  p{{ apidef.Prefix }} <> IntPtr.Zero Then {{ apidef.prexfix.lower() }}free(p{{ apidef.Prefix }})
+        {{ apidef.Prefix }}Free = True
+    End Function
+
+    Public Function {{ apidef.Prefix }}LibraryUnload() As Boolean
+        Return FreeLibrary(h)
+    End Function
+
+    Public Function {{ apidef.Prefix }}GetScreenIndicator() As Boolean
+        Return ScreenIndicator
+    End Function
+
+    Public Sub {{ apidef.Prefix }}SetScreenIndicator(ByVal scrind As Boolean)
+        ScreenIndicator = scrind
+    End Sub
+
+    Public Function {{ apidef.Prefix }}GetExceptionIndicator() As Boolean
+         Return ExceptionIndicator
+    End Function
+
+    Public Sub {{ apidef.Prefix }}SetExceptionIndicator(ByVal excind As Boolean)
+        ExceptionIndicator = excind
+    End Sub
+
+    Public Function {{ apidef.Prefix }}GetExitIndicator() As Boolean
+        return ExitIndicator
+    End Function
+
+    Public Sub {{ apidef.Prefix }}SetExitIndicator(ByVal extind As Boolean)
+        ExitIndicator = extind
+    End Sub
+
+    Public Function {{ apidef.Prefix }}GetErrorCallback() As {{ apidef.Prefix }}ErrorCallback_t
+        Return ErrorCallBack
+    End Function
+
+    Public Sub {{ apidef.Prefix }}SetErrorCallback(ByVal func As {{ apidef.Prefix }}ErrorCallback_t)
+        ErrorCallBack = func
+    End Sub
+
+    Public Function {{ apidef.Prefix }}GetAPIErrorCount() As Integer
+        Return APIErrorCount
+    End Function
+
+    Public Sub {{ apidef.Prefix }}SetAPIErrorCount(ByVal ecnt As Integer)
+        APIErrorCount = ecnt
+    End Sub
+
+    Private Sub {{ apidef.Prefix }}ErrorHandling(ByVal Msg As String)
+        APIErrorCount += 1
+        If ScreenIndicator Then Console.WriteLine(Msg)
+        If ErrorCallBack <> Nothing Then
+            If ErrorCallBack(APIErrorCount, Msg) Then Environment.Exit(123)
+        End If
+        If ExceptionIndicator Then throw new ArgumentNullException()
+        If ExitIndicator Then Environment.Exit(123)
+    End Sub
+
+    Private Sub ConvertC2BAS(ByVal b As Byte(), ByRef s As String)
+        Dim i As Integer
+        s = ""
+        i = 0
+        While b(i) <> 0
+            s = s & Chr(b(i))
+            i = i + 1
+        End While
+    End Sub
+
+    Private Sub ConvertArrayC2BAS(ByVal b(,) As Byte, ByRef s As String, ByVal k As Integer)
+        Dim i As Integer
+        s = ""
+        i = 0
+        While b(k, i) <> 0
+            s = s & Chr(b(k, i))
+            i = i + 1
+        End While
+    End Sub
+
+
+    Private Function {{ apidef.prexfix.lower() }}apiVersion(ByVal api As Integer, ByRef msg As String, ByRef cl As Integer) As Integer
+        Dim rc_{{ apidef.prexfix.lower() }}apiVersion As Integer
+        Dim cpy_msg As StringBuilder = New StringBuilder(gamsglobals.str_len)
+        rc_{{ apidef.prexfix.lower() }}apiVersion = dll_{{ apidef.prexfix.lower() }}apiversion(api, cpy_msg, cl)
+        msg = cpy_msg.ToString()
+        Return rc_{{ apidef.prexfix.lower() }}apiVersion
+    End Function
+
+    Private Function {{ apidef.prexfix.lower() }}check(ByVal ep As String, ByVal nargs As Integer, ByRef s As Integer(), ByRef msg As String) As Integer
+        Dim rc_{{ apidef.prexfix.lower() }}check As Integer
+        Dim cpy_msg As StringBuilder = New StringBuilder(gamsglobals.str_len)
+        rc_{{ apidef.prexfix.lower() }}check = dll_{{ apidef.prexfix.lower() }}check(ep, nargs, s, cpy_msg)
+        msg = cpy_msg.ToString()
+        Return rc_{{ apidef.prexfix.lower() }}check
+    End Function
+
+{%- if apidef.ulp.elements.shape[0] > 0 and apidef.Prefix in apidef.ulp.elements['prefix'].tolist() %}
+
+    Public Sub {{ apidef.Prefix }}SetLoadPath(ByVal s As String)
+       Call dll_{{ apidef.Prefix }}SetLoadPath(s)
+    End Sub
+
+    Public Sub {{ apidef.Prefix }}GetLoadPath(ByRef s As String)
+        Dim cpy_s(str_len) As Byte
+        dll_{{ apidef.Prefix }}GetLoadPath(cpy_s(0))
+        Call ConvertC2BAS(cpy_s, s)
+    End Sub
+
+{% endif -%} {#- apidef.ulp #}
+
+{%- set MaxDimStyle = '' -%}
+{%- if ((apidef.MaxDimStyle is defined) and (apidef.MaxDimStyle.elements.shape[0] > 0)) -%}
+    {%- set mds = apidef.MaxDimStyle.elements[apidef.MaxDimStyle.elements['prefix']==apidef.Prefix] -%}
+    {%- if mds.shape[0] > 0 -%}
+        {%- set MaxDimStyle = mds['prefix'].iloc[0] -%}
+    {%- endif -%}
+{%- endif -%}
+
+{#- write all functions (public), special treatment for functions containing var strings and/or arrays -#}
+{%- for key,value in apidef.tfunc.elements.iterrows() %}
+    {%- if value['type'] == 'void' %}
+    Public Sub {{ value['name'] }}(ByVal p{{ apidef.Prefix }} As IntPtr
+    {%- else                       %}
+    Public Function {{ value['name'] }}(ByVal p{{ apidef.Prefix }} As IntPtr
+    {%- endif -%}
+    {%- set tpp = datadef.tpp.elements['tp'] -%}
+    {%- set f = apidef.f.elements[apidef.f.elements['name']==value['name']]-%}
+    {%- for fkey,fvalue in f[f['pos'].isin(tpp)].iterrows() if f.shape[0] > 0 -%}
+,
+       {%- if fvalue['type'] != 'funcptr' -%} 
+            {%- if fvalue['type'] in datadef.taar.elements['ta'].tolist() -%} {{ VBNetCall(fvalue['type']) }} {{ fvalue['arg'] }} As {{ VBNetType(fvalue['type']) }}
+            {%- else                                                      -%} {{ VBNetCall(fvalue['type']) }} {{ fvalue['arg'] }} As {{ VBNetType(fvalue['type']) }}
+            {%- endif -%}
+       {%- else                           -%}
+         {%-if apidef.FuncMap.elements.shape[0] > 0 -%}
+            {%- set funcmap   = apidef.FuncMap.elements[apidef.FuncMap.elements['fpos'] == fvalue['pos']] -%}
+            {%- for fmkey,fmvalue in funcmap[funcmap['def']==fvalue['name']].iterrows()
+                if funcmap.shape[0] > 0 -%}
+{{ VBNetCall(fvalue['type']) }} {{ fvalue['arg'] }} As {{ fmvalue['name'] }}
+            {%- endfor %}
+         {%- endif -%}
+       {%- endif -%}
+    {% endfor -%} {#- f -#}
+)
+    {%- if value['type'] != 'void' -%} 
+       {%- if value['type'] in datadef.tapc.elements['ta'].tolist() %} As String
+       {%- elif value['type'] != 'funcptr'                          %} As {{ VBNetType(value['type']) }}
+       {%- else                                                    -%}
+            {%- for fmkey,fmvalue in apidef.FuncMap.elements.iterrows() -%}
+                {%- if fmvalue['def']==value['name'] %} As {{ fmvalue['name'] }}
+                {%- endif -%}
+            {%- endfor %}
+       {%- endif -%}
+    {%- endif -%}
+    {%- if value['type'] == 'oss' %}
+        Dim cpy_result As StringBuilder = New StringBuilder(gamsglobals.str_len)
+    {%- endif -%}
+    {%- if value['name'] in apidef.fost.elements['name'].tolist() -%}
+       {%- set f = apidef.f.elements[apidef.f.elements['name']==value['name']]-%}
+       {%- for fkey,fvalue in f[f['pos'].isin(tpp)].iterrows() if f.shape[0] > 0 -%}
+           {%- if fvalue['type'] in datadef.tass.elements['ta'].tolist() and 
+                  fvalue['type'] != 'css' -%}
+              {%- if fvalue['type'] in ['oss', 'xss'] %}
+        Dim cpy_{{ fvalue['arg'] }} As StringBuilder = New StringBuilder(gamsglobals.str_len)
+              {%- else                                %}
+        Dim cpy_{{ fvalue['arg'] }}(maxdim,str_len) As Byte
+        Dim i_{{ fvalue['arg'] }} As Integer
+                 {%- if fvalue['type'] == 'osi' %}
+        Dim sidim_{{ fvalue['arg'] }} As Integer
+                 {%- endif -%}
+              {%- endif -%}
+           {% endif -%}
+       {% endfor -%} {#- f -#}
+
+       {%- if value['type'] not in ['void','oss'] %}
+        {{ value['name'] }} =
+       {%- else                                   %}
+        Call
+       {%- endif %} dll_{{ value['name'] }}(p{{ apidef.Prefix }}
+       {%- set f = apidef.f.elements[apidef.f.elements['name']==value['name']]-%}
+       {%- set counter = namespace(argpos=1) -%}
+       {%- for fkey,fvalue in f[f['pos'].isin(tpp)].iterrows() if f.shape[0] > 0 -%}
+           {%- if counter.argpos > 0 -%} , {%- endif -%} 
+           {%- if fvalue['type'] in datadef.tass.elements['ta'].tolist() and 
+                  fvalue['type'] != 'css'                                        -%} 
+               {%- if fvalue['type']   == 'oss' -%} cpy_{{ fvalue['arg'] }}
+               {%- elif fvalue['type'] == 'xss' -%} cpy_{{ fvalue['arg'] }},255
+               {%- else                         -%} cpy_{{ fvalue['arg'] }}(0,0)
+               {%- endif -%}
+           {%- elif fvalue['type'] in datadef.taar.elements['ta'].tolist()       -%} {{ fvalue['arg'] }}
+           {%- else                                                              -%} {{ fvalue['arg'] }}
+           {%- endif -%}
+           {%- set counter.argpos = counter.argpos + 1 -%}
+       {% endfor -%} {#- f -#}
+       {%- if value['type']  == 'oss' -%} ,cpy_result
+       {%- endif -%}
+)
+       {%- for fkey,fvalue in f[f['pos'].isin(tpp)].iterrows() if f.shape[0] > 0 -%}
+            {%- if fvalue['type'] in ['oss','xss'] %}
+        {{ fvalue['arg'] }} = cpy_{{ fvalue['arg'] }}.ToString()
+            {%- elif fvalue['type'] == 'osi'       -%}
+               {%- if MaxDimStyle == ''       %}
+        sidim_{{ fvalue['arg'] }} = maxdim
+               {%- elif MaxDimStyle == 'gdx' -%}
+                   {%- if ((apidef.callSymbolDim is defined) and (apidef.callSymbolDim.elements.shape[0] > 0)) -%}
+                      {%- set callsymboldim = apidef.callSymbolDim.elements[apidef.callSymbolDim.elements['name']==fvalue['name']] -%}
+                      {%- if callsymboldim.shape[0] > 0 %}
+        sidim_{{ fvalue['arg'] }} = gdxsymboldim(p{{ apidef.Prefix }}, SyNr)
+                      {%- else                          %}
+        sidim_{{ fvalue['arg'] }} = gdxcurrentdim(p{{ apidef.Prefix }})
+                      {%- endif -%}
+                   {%- else                               -%}
+        sidim_{{ fvalue['arg'] }} = gdxcurrentdim(p{{ apidef.Prefix }})
+                   {%- endif %}
+        If({{ fvalue['name'] }} <> 0) Then
+               {%- elif MaxDimStyle == 'gmd' -%}
+                   {% if (apidef.useADim is defined)  and (apidef.useADim.elements.shape[0] >0) and
+                         (fvalue['name'] in apidef.useADim.elements['name'].tolist()) %}
+        sidim_{{ fvalue['arg'] }} = aDim
+                   {%- else                                                                                                       %}
+        dim sidim_rc as integer
+        sidim_rc = dll_gmdsymboldim(pgmd,symptr,sidim_{{ fvalue['arg'] }})
+                  {%- endif -%}
+               {%- endif %}
+        For i_{{ fvalue['arg'] }} = 0 To sidim_{{ fvalue['arg'] }}
+            Call ConvertArrayC2BAS(cpy_{{ fvalue['arg'] }},{{ fvalue['arg'] }}(i_{{ fvalue['arg'] }}), i_{{ fvalue['arg'] }})
+        Next i_{{ fvalue['arg'] }}
+               {%- if MaxDimStyle == 'gdx' %}
+        End If
+               {%- endif -%}
+            {%- endif -%}
+       {% endfor -%} {#- f #}
+
+    {%- else                                                      -%}
+       {%- if value['type'] != 'void' %}
+        {{ value['name'] }} = dll_{{ value['name'] }}(p{{ apidef.Prefix }}
+       {%- else                       %}
+        dll_{{ value['name'] }}(p{{ apidef.Prefix }}
+       {%- endif %} 
+       {%- set f = apidef.f.elements[apidef.f.elements['name']==value['name']]-%}
+       {%- set counter = namespace(argpos=0) -%}
+       {%- for fkey,fvalue in f[f['pos'].isin(tpp)].iterrows() if f.shape[0] > 0 -%}
+           {%- if counter.argpos >= 0 -%}
+              {%- if fvalue['type'] in datadef.taar.elements['ta'].tolist() and 
+                     fvalue['type'] not in datadef.tass.elements['ta'].tolist() -%} ,{{ fvalue['arg'] }}
+              {%- else                                                          -%} ,{{ fvalue['arg'] }}
+              {%- endif -%}
+           {% endif -%}
+           {%- set counter.argpos = counter.argpos + 1 -%}
+       {% endfor -%} {#- f -#}
+)
+    {%- endif -%}
+    {%- if value['type'] == 'oss' %}
+        {{ value['name'] }} = cpy_result.ToString()
+    {%- endif -%}
+    {%- if value['type'] == 'void' %}
+    End Sub
+
+    {%- else                       %}
+    End Function
+
+    {%- endif %}
+{% endfor -%} {#- tfunc -#}
+
+{%- for pkey,pvalue in apidef.pn.elements.iterrows() %}
+
+    Public 
+    {%- if pvalue['pactions']=='r' %} Function {{ pvalue['name'] }}(ByVal p{{ apidef.Prefix }} As IntPtr)
+        {%- if pvalue['type'] != 'void' -%} 
+            {%- if pvalue['type'] in datadef.tapc.elements['ta'].tolist() %} As String
+            {%- elif pvalue['type'] != 'funcptr'                          %} As {{ VBNetType(pvalue['type']) }}
+            {%- else                                                     -%}
+               {%- for fmkey,fmvalue in apidef.FuncMap.elements[apidef.FuncMap.elements['def']==pvalue['name']].iterrows()
+                   if apidef.FuncMap.elements.shape[0] > 0 %} As {{ fmvalue['name'] }}
+               {%- endfor -%}
+            {%- endif -%}
+        {%- endif -%}
+    {%- else                       %} Sub {{ pvalue['name'] }}Set(ByVal p{{ apidef.Prefix }} As IntPtr, 
+        {%- if pvalue['type'] != 'funcptr' -%}
+            {%- if pvalue['type'] == 'oss'    %} ByVal x As {{ VBNetType(pvalue['type']) }})
+            {%- else                          %} {{ VBNetCall(pvalue['type']) }}  x As {{ VBNetType(pvalue['type']) }})
+            {%- endif -%}
+        {%- else                           -%}
+            {%- for fmkey,fmvalue in apidef.FuncMap.elements[apidef.FuncMap.elements['def']==pvalue['name']].iterrows()
+                if apidef.FuncMap.elements.shape[0] > 0 -%}
+                {%- if fmvalue['fpos']=='p' %} ByVal x As {{ fmvalue['name'] }})
+                {%- endif -%}
+            {%- endfor -%}
+        {%- endif -%}
+    {%- endif -%}
+    {%- if pvalue['pactions']=='r' %}
+        {%- if pvalue['type'] == 'oss' %}
+        Dim cpy_result As StringBuilder = New StringBuilder(gamsglobals.str_len)
+        Call dll_{{ pvalue['name'] }}(p{{ apidef.Prefix }}, cpy_result)
+        {{ pvalue['name'] }} = cpy_result.ToString()
+        {%- elif pvalue['type'] == 'bool'                             %}
+        {{ pvalue['name'] }} = dll_{{ pvalue['name'] }}(p{{ apidef.Prefix }})
+        {%- else                                                      %}
+        {{ pvalue['name'] }} = dll_{{ pvalue['name'] }}(p{{ apidef.Prefix }})
+        {%- endif %}
+    End Function
+
+    {%- else                       -%}
+        {%- if pvalue['type'] == 'bool' %}
+        Call dll_{{ pvalue['name'] }}Set(p{{ apidef.Prefix }},x)
+        {%- else                        %}
+        Call dll_{{ pvalue['name'] }}Set(p{{ apidef.Prefix }}, x)
+        {%- endif %}
+    End Sub
+
+    {%- endif %}
+{%- endfor -%} {#- adidef.pn  #}
+
+End Module
+{% endblock -%}

@@ -1,0 +1,107 @@
+{%- extends "delphibase.template.j2" -%}
+
+{%- block content -%}
+type uInt64 = record
+              case integer of
+                 1 : (i : Int64);
+                 2 : (p : pointer);
+              end;
+
+{%-  set tpp  = datadef.tpp.elements['tp'].tolist()    -%}
+{%- set ptrf = apidef.PFtrF.elements['name'].tolist() -%}
+{%- for fkey,fvalue in apidef.f.elements[apidef.f.elements['pos'].isin(tpp)].iterrows()
+    if fvalue['type'] == 'funcptr' -%}
+    {%- set funcmap = apidef.FuncMap.elements[apidef.FuncMap.elements['def']==fvalue['name']] -%}
+    {%- for fmkey,fmvalue in funcmap[funcmap['fpos']==fvalue['pos']].iterrows()
+        if fmvalue['name'] in ptrf -%}
+        {%- for key,value in apidef.tPtrFunc.elements[apidef.tPtrFunc.elements['name']==fmvalue['name']].iterrows() %}
+           {%- if value['type'] == 'void' %}
+
+procedure
+           {%- else                       %}
+
+function
+           {%- endif %} {{ dobjectint(apidef.Prefix) }}.{{ fvalue['name'] }}_{{ fvalue['arg'] }}_FC(
+           {%- set counter = namespace(argpos = 1) -%}
+           {%- set ptrf    = apidef.PtrF.elements[apidef.PtrF.elements.name==value['name']] -%}
+           {%- set ptrftpp = ptrf[ptrf['apos'].isin(tpp)]                                   -%}
+           {%- for fkey,fvalue in ptrftpp.iterrows() if ptrf.shape[0] > 0 -%}
+{{ DCall(fvalue['type']) }}{{ fvalue['arg'] }}: {{ DType(fvalue['type']) }}
+               {%- if counter.argpos < ptrftpp.shape[0] -%}; {% endif -%}
+               {%- set counter.argpos = counter.argpos + 1 -%}
+           {%- endfor -%} )
+           {%- if value['type'] == 'void' -%} ;
+           {%- else                       -%} : {{ DType(value['type']) }};
+           {%- endif %} stdcall;
+var
+   local_{{ fvalue['name'] }}_{{ fvalue['arg'] }} : {{ value['name'] }}_F;
+           {%- for fkey,fvalue in ptrftpp.iterrows() if ptrf.shape[0] > 0 and fvalue['type'] == 'ptr' %}
+   local_{{ fvalue['arg'] }} : uInt64;
+           {%- endfor %}
+           {%- for fkey,fvalue in ptrftpp.iterrows() if ptrf.shape[0] > 0 and fvalue['type'] == 'c' %}
+   local_{{ fvalue['arg'] }} : pAnsiChar;
+           {%- endfor %}
+           {%- for fkey,fvalue in ptrftpp.iterrows() if ptrf.shape[0] > 0 and fvalue['type'] == 'bool' %}
+   local_{{ fvalue['arg'] }} : Integer;
+           {%- endfor %}
+begin
+if {{ fvalue['name'] }}_{{ fvalue['arg'] }}_CallByRef
+then
+   begin
+   @local_{{ fvalue['name'] }}_{{ fvalue['arg'] }} := @{{ fvalue['name'] }}_{{ fvalue['arg'] }};
+           {%- for fkey,fvalue in ptrftpp.iterrows() if ptrf.shape[0] > 0 and fvalue['type'] == 'ptr' %}
+   local_{{ fvalue['arg'] }}.i := 0;
+   local_{{ fvalue['arg'] }}.p := {{ fvalue['arg'] }};
+           {%- endfor %}
+           {%- for fkey,fvalue in ptrftpp.iterrows() if ptrf.shape[0] > 0 and fvalue['type'] == 'c' %}
+   local_{{ fvalue['arg'] }} := @{{ fvalue['arg'] }};
+           {%- endfor %}
+           {%- for fkey,fvalue in ptrftpp.iterrows() if ptrf.shape[0] > 0 and fvalue['type'] == 'bool' %}
+   local_{{ fvalue['arg'] }} := Integer({{ fvalue['arg'] }});
+           {%- endfor %}
+           {%- if value['type'] == 'void' %}
+   local_{{ fvalue['name'] }}_{{ fvalue['arg'] }}(
+           {%- else                       %}
+   result := local_{{ fvalue['name'] }}_{{ fvalue['arg'] }}(
+           {%- endif -%}
+           {%- set counter = namespace(argpos = 1) -%}
+           {%- for fkey,fvalue in ptrftpp.iterrows() if ptrf.shape[0] > 0 -%}
+               {%- if fvalue['type'] == 'ptr'          -%} local_{{ fvalue['arg'] }}.i
+               {%- elif fvalue['type'] in ['c','bool'] -%} local_{{ fvalue['arg'] }}
+               {%- else                                -%} {{ fvalue['arg'] }}
+               {%- endif -%}
+               {%- if counter.argpos < ptrftpp.shape[0] -%}, {% endif -%}
+               {%- set counter.argpos = counter.argpos + 1 -%}
+           {%- endfor %}
+           {%- set typeInteger = ['c','cpc','css','csi']                   -%}
+           {%- set ptrftppint = ptrftpp[ptrftpp['type'].isin(typeInteger)] -%}
+           {%- for fkey,fvalue in ptrftppint.iterrows() -%}
+               {%- if fvalue['type'] == 'c'     -%} , 1
+               {%- elif fvalue['type'] == 'csi' -%} , 256
+               {%- elif fvalue['type'] == 'cpc' -%} , StrLen({{ fvalue['arg'] }})
+               {%- elif fvalue['type'] == 'css' -%} , Length({{ fvalue['arg'] }}) + 1
+               {%- endif -%}
+           {%- endfor -%}
+);
+   end
+else
+           {%- if value['type'] == 'void' %}
+   {{ fvalue['name'] }}_{{ fvalue['arg'] }}(
+           {%- else                       %}
+   result := {{ fvalue['name'] }}_{{ fvalue['arg'] }}(
+           {%- endif -%}
+           {%- set counter = namespace(argpos = 1) -%}
+           {%- for fkey,fvalue in ptrftpp.iterrows() if ptrf.shape[0] > 0 -%}
+               {%- if fvalue['type'] == 'bool' -%} Integer({{ fvalue['arg'] }})
+               {%- else                        -%} {{ fvalue['arg'] }}
+               {%- endif -%}
+               {%- if counter.argpos < ptrftpp.shape[0] -%}, {% endif -%}
+               {%- set counter.argpos = counter.argpos + 1 -%}
+           {%- endfor -%}
+);
+end;
+        {%- endfor %}
+    {%- endfor %}
+{%- endfor %}
+
+{% endblock %}

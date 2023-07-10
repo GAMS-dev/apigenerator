@@ -1,0 +1,481 @@
+{%- extends "vbbase.template.j2" -%}
+
+{%- block header -%}
+' Visual Basic for Applications procedure wrapper {{ api.generatedstr }}
+{%- endblock -%}
+
+{%- block content %}
+
+{#- write constants -#}
+{%- for key,value in apidef.cname.elements.iterrows() %}
+
+    {%- set counter = namespace(cpos = 1) -%}
+    {%- for gkey,gvalue in apidef.gcon.elements[apidef.gcon.elements['group']==value['group']].iterrows()
+        if apidef.gcon.elements.shape[0] > 0 -%}
+        {%- set len = value['maxlen'] - gvalue['len'] %}
+Public Const {{ gvalue['constant'] }}{{ prettyWhiteSpace(len) }} = {{ gvalue['value']}}  '{{ value['group'] }}
+    {%- endfor -%} {#- apidef.gcon #}
+{% endfor -%} {#- apidef.cname #}
+
+{#- write string constants -#}
+{%- for key,value in apidef.csname.elements.iterrows() %}
+    {%- set counter = namespace(cpos = 1) -%}
+    {%- for gkey,gvalue in apidef.gstrcon.elements[apidef.gstrcon.elements['group']==value['group']].iterrows() 
+        if apidef.gstrcon.elements.shape[0] > 0 -%}
+        {%- set len = value['maxlen'] - gvalue['len'] %}
+Public Const {{ gvalue['constant'] }}{{ prettyWhiteSpace(len) }} = "{{ gvalue['value']}}"
+        {%- if counter.cpos == 1 %}   '{{ value['group'] }}  {%- endif -%}
+        {%- set counter.cpos = counter.cpos + 1 -%}
+    {%- endfor -%} {#- apidef.gstrcon #}
+{% endfor -%} {#- apidef.csname -#}
+
+{%- if apidef.ulp.elements.shape[0] > 0 and apidef.Prefix in apidef.ulp.elements['prefix'].tolist() %}
+#If Win64 Then
+Public Declare PtrSafe Sub {{ apidef.Prefix }}SetLoadPath Lib "{{ apidef.DelphiLib }}64" Alias "{{ apidef.Prefix }}setloadpath" (ByVal s As String)
+Public Declare PtrSafe Sub {{ apidef.Prefix }}GetLoadPath Lib "{{ apidef.DelphiLib }}64" Alias "{{ apidef.Prefix }}getloadpath" (ByVal s As String)
+#Else
+Public Declare Sub {{ apidef.Prefix }}SetLoadPath Lib "{{ apidef.DelphiLib }}" Alias "{{ apidef.Prefix }}setloadpath" (ByVal s As String)
+Public Declare Sub {{ apidef.Prefix }}GetLoadPath Lib "{{ apidef.DelphiLib }}" Alias "{{ apidef.Prefix }}getloadpath" (ByVal s As String)
+#End If
+
+{%- endif -%} {#- apidef.ulp #}
+
+{%- macro intro(version) -%}
+  {%- if version=='vba7'   -%} #If Win64 Then
+  {%- elif version=='vba6' -%} #Else
+  {%- endif -%}
+{%- endmacro -%}
+
+{%- macro declr(version) -%}
+  {%- if version=='vba7'   -%} PtrSafe{{ prettyWhiteSpace(1) }}
+  {%- elif version=='vba6' -%}
+  {%- endif -%}
+{%- endmacro -%}
+
+{%- macro ptr(version) -%}
+  {%- if version=='vba7'   -%} LongPtr
+  {%- elif version=='vba6' -%} Long
+  {%- endif -%}
+{%- endmacro -%}
+
+{%- macro suf(version) -%}
+  {%- if version=='vba7'   -%} 64
+  {%- elif version=='vba6' -%}
+  {%- endif -%}
+{%- endmacro %}
+
+{%- set vbaversion = ['vba7','vba6'] -%}
+
+{%- for version in vbaversion %}
+{{ intro(version) }}
+   {%- for key,value in apidef.tfunc.elements.iterrows() -%}
+     {%- if value['name'] not in apidef.enInt64.elements['name'].tolist() %}
+       {%- if apidef.fpf.elements.shape[0] > 0 and 
+              value['name'] in apidef.fpf.elements['def'].tolist()  %}
+' Private Declare {{ declr(version) }}
+       {%- else                                                     %}
+Private Declare {{ declr(version) }}
+       {%- endif -%}
+       {%- if value['type'] in ['void','oss'] -%} Sub{{ prettyWhiteSpace(1) }}
+       {%- else                               -%} Function{{ prettyWhiteSpace(1) }}
+       {%- endif -%}
+       {%- if value['type'] == 'oss' -%} 
+dll_{{ value['name'] }} Lib "{{ apidef.DelphiLib }}{{ suf(version) }}" Alias "c{{ value['name'].lower() }}" (ByVal p{{ apidef.Prefix }} As {{ ptr(version) }}
+       {%- else -%}
+dll_{{ value['name'] }} Lib "{{ apidef.DelphiLib }}{{ suf(version) }}" Alias "{{ value['name'].lower() }}" (ByVal p{{ apidef.Prefix }} As {{ ptr(version) }}
+       {%- endif -%}
+
+       {%- set tpp = datadef.tpp.elements['tp'] -%}
+       {%- set f = apidef.f.elements[apidef.f.elements['name']==value['name']]-%}
+       {%- for fkey,fvalue in f[f['pos'].isin(tpp)].iterrows() if f.shape[0] > 0 -%}
+, 
+          {%- if fvalue['type'] != 'funcptr' -%} 
+            {%- if (apidef.fstr.elements.shape[0] > 0 and fvalue['name'] in apidef.fstr.elements['name'].tolist() and 
+                    datadef.tass.elements.shape[0] > 0 and fvalue['type'] in datadef.tass.elements['ta'].tolist())    -%}
+ByRef {{ fvalue['arg'] }} As byte
+            {%- elif fvalue['type'] in ['bool','vbool']                                                               -%}
+{{ VBACall(fvalue['type']) }} {{ fvalue['arg'] }} As Long
+            {%- elif fvalue['type'] in ['ptr','vptr']                                                                 -%}
+{{ VBACall(fvalue['type']) }} {{ fvalue['arg'] }} As {{ ptr(version) }}
+            {%- else                                                                                                  -%}
+{{ VBACall(fvalue['type']) }} {{ fvalue['arg'] }} As {{ VBAType(fvalue['type']) }}
+            {%- endif -%}
+          {%- else                                                                                                    -%}
+{{ VBACall(fvalue['type']) }} {{ fvalue['arg'] }}  *** Function Pointer not supported *** 
+          {%- endif -%}
+       {% endfor -%} {#- f -#}
+       {%- if value['type'] in ['oss'] -%},byref sst_result as byte
+       {%- endif -%}
+)
+       {%- if value['type'] not in ['void','oss'] -%}
+           {%- if value['type'] != 'funcptr' -%}
+              {%- if value['type'] == 'bool'  %} As Long
+              {%- elif value['type'] == 'ptr' %} As {{ ptr(version) }}
+              {%- else                        %} As {{ VBAType(value['type']) }}
+              {%- endif -%}
+           {%- else                               %} *** Function Pointer not supported *** 
+           {%- endif -%}
+       {%- endif -%}
+     {%- endif -%}
+   {%- endfor -%} {#- apidef.tfunc #}
+
+
+   {%- for pkey,pvalue in apidef.pn.elements.iterrows() %}
+
+       {%- if apidef.fpf.elements.shape[0] > 0 and 
+              pvalue['name'] in apidef.fpf.elements['def'].tolist()  -%}' {% endif -%}
+       {%- if pvalue['pactions']=='r' -%}
+         {%- if pvalue['type'] != 'funcptr' -%}
+            {%- if pvalue['type'] == 'oss'   %}
+Private Declare {{ declr(version) }}Sub dll_{{ pvalue['name'] }} Lib "{{ apidef.DelphiLib }}{{ suf(version) }}" Alias "c{{ pvalue['name'].lower() }}" (ByVal p{{ apidef.Prefix }} As {{ ptr(version) }}, ByRef sst_result As Byte)
+            {%- else                         %}
+Private Declare {{ declr(version) }}Function dll_{{ pvalue['name'] }} Lib "{{ apidef.DelphiLib }}{{ suf(version) }}" Alias "{{ pvalue['name'].lower() }}" (ByVal p{{ apidef.Prefix }} As {{ ptr(version) }}) As
+                {%- if pvalue['type'] == 'bool'                                 %} Long
+                {%- elif pvalue['type'] in datadef.tapc.elements['ta'].tolist() %} String
+                {%- else                                                        %} {{ VBAType(pvalue['type']) }}
+                {%- endif -%}
+            {%- endif -%}
+         {%- else                           -%}
+            {%- for fmkey,fmvalue in apidef.FuncMap.elements[apidef.FuncMap.elements['def']==pvalue['name']].iterrows()
+                if apidef.FuncMap.elements.shape[0] > 0 -%}
+                {%- if fmvalue['fpos']=='p' %}
+Private Declare {{ declr(version) }}Function dll_{{ pvalue['name'] }} Lib "{{ apidef.DelphiLib }}{{ suf(version) }}" (ByVal p{{ apidef.Prefix }} As {{ ptr(version) }}) *** Function Pointer not supported *** 
+                {%- endif -%}
+            {%- endfor %}
+         {%- endif -%}
+      {%- else                       -%}
+         {%- if pvalue['type'] != 'funcptr' -%}
+            {%- if pvalue['type'] == 'oss'    %}
+Private Declare {{ declr(version) }}Sub dll_{{ pvalue['name'] }}Set Lib "{{ apidef.DelphiLib }}{{ suf(version) }}" Alias "c{{ pvalue['name'].lower() }}set" (ByVal p{{ apidef.Prefix }} As {{ ptr(version) }}, ByVal x As {{ VBAType(pvalue['type']) }})
+            {%- elif pvalue['type'] == 'bool' %}
+Private Declare {{ declr(version) }}Sub dll_{{ pvalue['name'] }}Set Lib "{{ apidef.DelphiLib }}{{ suf(version) }}" Alias "{{ pvalue['name'].lower() }}set" (ByVal p{{ apidef.Prefix }} As {{ ptr(version) }}, ByVal x As Long)
+            {%- else                          %}
+Private Declare {{ declr(version) }}Sub dll_{{ pvalue['name'] }}Set Lib "{{ apidef.DelphiLib }}{{ suf(version) }}" Alias "{{ pvalue['name'].lower() }}set" (ByVal p{{ apidef.Prefix }} As {{ ptr(version) }}, {{ VBACall(pvalue['type']) }} x As {{ VBAType(pvalue['type']) }})
+            {%- endif -%}
+         {%- else                           -%}
+            {%- for fmkey,fmvalue in apidef.FuncMap.elements[apidef.FuncMap.elements['def']==pvalue['name']].iterrows()
+                if apidef.FuncMap.elements.shape[0] > 0 -%}
+                {%- if fmvalue['fpos']=='p' %}
+Public Declare {{ declr(version) }}Sub dll_{{ value['name'] }}Set Lib "{{ apidef.DelphiLib }}{{ suf(version) }}" Alias "{{ pvalue['name'].lower() }}set" (ByVal p{{ apidef.Prefix }} As {{ ptr(version) }}, ByVal x *** Function Pointer not supported *** )
+                {%- endif -%}
+            {%- endfor %}
+
+         {%- endif -%}
+      {%- endif -%}
+   {%- endfor -%} {#- adidef.pn  #}
+{% endfor -%} {#- vbaversion -#}
+#End If
+
+#If Win64 Then
+Private Declare PtrSafe Sub {{ apidef.prexfix }}Create Lib "{{ apidef.DelphiLib }}64" Alias "{{ apidef.prexfix.lower() }}create" (ByRef p{{ apidef.Prefix }} As LongPtr)
+Private Declare PtrSafe Sub {{ apidef.prexfix }}Free   Lib "{{ apidef.DelphiLib }}64" Alias "{{ apidef.prexfix.lower() }}free"   (ByRef p{{ apidef.Prefix }} As LongPtr)
+#Else
+Private Declare Sub {{ apidef.prexfix }}Create Lib "{{ apidef.DelphiLib }}" Alias "{{ apidef.prexfix.lower() }}create" (ByRef p{{ apidef.Prefix }} As Long)
+Private Declare Sub {{ apidef.prexfix }}Free   Lib "{{ apidef.DelphiLib }}" Alias "{{ apidef.prexfix.lower() }}free"   (ByRef p{{ apidef.Prefix }} As Long)
+#End If
+
+Public Function {{ apidef.Prefix }}Create(ByRef p{{ apidef.Prefix }} As vbaptr, ByRef msgBuf As String) As Boolean
+    Call {{ apidef.prexfix }}Create(p{{ apidef.Prefix }}.p)
+    If p{{ apidef.Prefix }}.p <> 0 Then
+        {{ apidef.Prefix }}Create = True
+    Else
+        {{ apidef.Prefix }}Create = False
+    End If
+End Function
+
+Public Function {{ apidef.Prefix }}CreateX(ByRef p{{ apidef.Prefix }} As vbaptr, ByRef msgBuf As String) As Boolean
+    Call {{ apidef.prexfix }}Create(p{{ apidef.Prefix }}.p)
+    If p{{ apidef.Prefix }}.p <> 0 Then
+        {{ apidef.Prefix }}CreateX = True
+    Else
+        {{ apidef.Prefix }}CreateX = False
+    End If
+End Function
+
+Public Function {{ apidef.Prefix }}CreateD(ByRef p{{ apidef.Prefix }} As vbaptr, ByVal dirName As String, ByRef msgBuf As String) As Boolean
+    Call {{ apidef.prexfix }}Create(p{{ apidef.Prefix }}.p)
+    If p{{ apidef.Prefix }}.p <> 0 Then
+        {{ apidef.Prefix }}CreateD = True
+    Else
+        {{ apidef.Prefix }}CreateD = False
+    End If
+End Function
+
+Public Function {{ apidef.Prefix }}CreateL(ByRef p{{ apidef.Prefix }} As vbaptr, ByVal libName As String, ByRef msgBuf As String) As Boolean
+    Call {{ apidef.prexfix }}Create(p{{ apidef.Prefix }}.p)
+    If p{{ apidef.Prefix }}.p <> 0 Then
+        {{ apidef.Prefix }}CreateL = True
+    Else
+        {{ apidef.Prefix }}CreateL = False
+    End If
+End Function
+
+Public Function {{ apidef.Prefix }}Free(ByRef p{{ apidef.Prefix }} As vbaptr) As boolean
+   Call {{ apidef.prexfix }}Free(p{{ apidef.Prefix }}.p)
+   {{ apidef.Prefix }}Free = True
+End Function
+
+Private Sub ConvertBAS2PAS(s As String, b() As Byte)
+    Dim i As Integer
+    Dim slen As Integer
+    slen = Len(s)
+    If (slen > UBound(b)) Then
+        slen = UBound(b)
+    End If
+    b(0) = slen
+    For i = 1 To slen
+        b(i) = Asc(Mid(s, i, 1))
+    Next i
+End Sub
+
+Private Sub ConvertPAS2BAS(b() As Byte, s As String)
+    Dim i As Integer
+    Dim slen As Integer
+    slen = b(0)
+    s = ""
+    For i = 1 To slen
+        s = s & Chr(b(i))
+    Next i
+End Sub
+
+Private Sub ConvertC2BAS(b() As Byte, s As String)
+    Dim i As Integer
+    s = ""
+    i = 0
+    Do While b(i) <> 0
+        s = s & Chr(b(i))
+        i = i + 1
+    Loop
+End Sub
+
+{%- set MaxDimStyle = '' -%}
+{%- if ((apidef.MaxDimStyle is defined) and (apidef.MaxDimStyle.elements.shape[0] > 0)) -%}
+    {%- set mds = apidef.MaxDimStyle.elements[apidef.MaxDimStyle.elements['prefix']==apidef.Prefix] -%}
+    {%- if mds.shape[0] > 0 -%}
+        {%- set MaxDimStyle = mds['prefix'].iloc[0] -%}
+    {%- endif -%}
+{%- endif -%}
+{%- set tpp = datadef.tpp.elements['tp'] -%}
+
+{%- for key,value in apidef.tfunc.elements.iterrows() -%}
+  {%- set enInt64 = (value['name'] in apidef.enInt64.elements['name'].tolist()) -%}
+  {%- set fpf     = (apidef.fpf.elements.shape[0] > 0 and value['name'] in apidef.fpf.elements['def'].tolist()) -%} 
+  {%- if (not fpf) and (not enInt64) -%}
+    {%- if value['type'] == 'void' %}
+
+Public Sub {{ value['name'] }}(p{{ apidef.Prefix }} As vbaptr
+    {%- else                       %}
+
+Public Function {{ value['name'] }}(p{{ apidef.Prefix }} As vbaptr
+    {%- endif -%}
+    {%- set f = apidef.f.elements[apidef.f.elements['name']==value['name']]-%}
+    {%- for fkey,fvalue in f[f['pos'].isin(tpp)].iterrows() if f.shape[0] > 0 -%}
+,
+        {%- if fvalue['type'] != 'funcptr' -%}
+            {%- if (datadef.taar.elements.shape[0] > 0 and fvalue['type'] in datadef.taar.elements['ta'].tolist())    -%}
+{{ fvalue['arg'] }}() As {{ VBAType(fvalue['type']) }}
+            {%- else                                                                                                  -%}
+{{ fvalue['arg'] }} As {{ VBAType(fvalue['type']) }}
+            {%- endif -%}
+        {%- else                          -%}
+          {%-if apidef.FuncMap.elements.shape[0] > 0 -%}
+            {%- for fmkey,fmvalue in apidef.FuncMap.elements[apidef.FuncMap.elements['def']==value['name']].iterrows() 
+                if (apidef.FuncMap.elements.shape[0] > 0) -%}
+{{ fvalue['arg'] }} *** Function Pointer not supported *** 
+            {%- endfor %}
+          {%- endif -%}
+        {%- endif -%}
+    {% endfor -%} {#- f -#}
+)
+    {%- if value['type'] != 'void' %}
+        {%- if value['type'] != 'funcptr' %} As {{ VBAType(value['type']) }}
+        {%- else                          %} *** Function Pointer not supported *** 
+        {%- endif -%}
+    {%- endif -%}
+
+    {%- if value['type'] == 'oss' %}
+   dim cpy_result(str_len) as byte
+    {%- endif -%}
+
+    {%- set f = apidef.f.elements[apidef.f.elements['name']==value['name']]-%}
+    {%- for fkey,fvalue in f[f['pos'].isin(tpp)].iterrows() if f.shape[0] > 0 -%}
+       {%- if datadef.tass.elements.shape[0] > 0 and fvalue['type'] in datadef.tass.elements['ta'].tolist()  -%}
+          {%- if fvalue['type'] in ['css','oss'] %}
+   Dim cpy_{{ fvalue['arg'] }} As String255
+       {%- else                          %}
+   Dim cpy_{{ fvalue['arg'] }}(maxdim) As String255
+   Dim i_{{ fvalue['arg'] }} As Integer
+             {%- if fvalue['type'] in ['csi','osi'] %}
+   Dim sidim_{{ fvalue['arg'] }} As Integer
+             {%- endif -%}
+          {%- endif -%}
+       {%- endif -%}
+    {% endfor -%} {#- f -#}
+
+    {%- for fkey,fvalue in f[f['pos'].isin(tpp)].iterrows() if f.shape[0] > 0 -%}
+        {%- if datadef.tass.elements.shape[0] > 0 and fvalue['type'] in datadef.tass.elements['ta'].tolist()  -%}
+           {%- if fvalue['type']=='css'   %}
+   Call ConvertBAS2PAS({{ fvalue['arg'] }}, cpy_{{ fvalue['arg'] }}.s)
+           {%- elif fvalue['type']=='csi' %}
+               {%- if MaxDimStyle == ''       %}
+   sidim_{{ fvalue['arg'] }} = maxdim
+               {%- elif MaxDimStyle == 'gdx' -%}
+                  {%- if ((apidef.callSymbolDim is defined) and (apidef.callSymbolDim.elements.shape[0] > 0)) -%}
+                    {%- set callsymboldim = apidef.callSymbolDim.elements[apidef.callSymbolDim.elements['name']==fvalue['name']] -%}
+                    {%- if callsymboldim.shape[0] > 0 %}
+   sidim_{{ fvalue['arg'] }} = dll_gdxsymboldim(p{{ apidef.Prefix }}.p, SyNr)
+                    {%- else                          %}
+   sidim_{{ fvalue['arg'] }} = dll_gdxcurrentdim(p{{ apidef.Prefix }}.p)
+                    {%- endif -%}
+                  {%- else                                                                                     %}
+   sidim_{{ fvalue['arg'] }} = dll_gdxcurrentdim(p{{ apidef.Prefix }}.p)
+                  {%- endif -%}
+               {%- elif MaxDimStyle == 'gmd' -%}
+                  {%-if (apidef.useADim is defined) and (apidef.useADim.elements.shape[0] >0) and
+                        (fvalue['name'] in apidef.useADim.elements['name'].tolist()) %}
+   sidim_{{ fvalue['arg'] }} = aDim
+                  {%- else                                                                                                       %}
+   dim sidim_rc as integer
+   sidim_rc = dll_gmdsymboldim(pgmd.p,symptr.p,sidim_{{ fvalue['arg'] }})
+                  {%- endif -%}
+              {%- endif %}
+   For i_{{ fvalue['arg'] }} = 0 To sidim_{{ fvalue['arg'] }}
+      Call ConvertBAS2PAS({{ fvalue['arg'] }}(i_{{ fvalue['arg'] }}), cpy_{{ fvalue['arg'] }}(i_{{ fvalue['arg'] }}).s)
+   Next i_{{ fvalue['arg'] }}
+          {%- endif -%}
+       {%- endif -%}
+    {%- endfor -%} {#- f #}
+
+    {%- if value['type'] not in ['void','oss'] %}
+   {{ value['name'] }} {%- if value['type']=='ptr' -%}.p{%- endif %} ={{prettyWhiteSpace(1)}}
+    {%- else                                   %}
+   Call{{prettyWhiteSpace(1)}}
+    {%- endif -%}
+dll_{{ value['name'] }}(p{{ apidef.Prefix }}.p
+    {%- for fkey,fvalue in f[f['pos'].isin(tpp)].iterrows() if f.shape[0] > 0 -%}
+, 
+       {%- if datadef.tass.elements.shape[0] > 0 and fvalue['type'] in datadef.tass.elements['ta'].tolist()   -%} cpy_
+       {%- endif -%}
+       {%- if (datadef.taar.elements.shape[0] > 0 and fvalue['type'] in datadef.taar.elements['ta'].tolist()) -%} {{ fvalue['arg'] }}(0)
+       {%- else                                                                                               -%} {{ fvalue['arg'] }}
+       {%- endif -%}
+       {%- if datadef.tass.elements.shape[0] > 0 and fvalue['type'] in datadef.tass.elements['ta'].tolist()   -%} .s(0)
+       {%- endif -%}
+        {%- if fvalue['type'] in ['ptr','vptr'] -%} .p
+        {%- endif %}
+    {%- endfor -%} {#- f #}
+    {%- if value['type'] == 'oss' -%} ,cpy_result(0)
+    {%- endif -%}
+)
+    {%- if value['type'] == 'oss'  %}
+   call convertc2bas(cpy_result, {{ value['name'] }})
+    {%- endif -%}
+    {%- for fkey,fvalue in f[f['pos'].isin(tpp)].iterrows() if f.shape[0] > 0 -%}
+       {%- if datadef.tass.elements.shape[0] > 0 and fvalue['type'] in datadef.tass.elements['ta'].tolist()  -%} 
+          {%- if fvalue['type'] == 'oss'    %}
+   Call ConvertPAS2BAS(cpy_{{ fvalue['arg'] }}.s,{{ fvalue['arg'] }})
+          {%- elif fvalue['type'] == 'osi'  %}
+             {%- if MaxDimStyle == ''       %}
+   sidim_{{ fvalue['arg'] }} = maxdim
+             {%- elif MaxDimStyle == 'gdx' -%}
+               {%- if ((apidef.callSymbolDim is defined) and (apidef.callSymbolDim.elements.shape[0] > 0)) -%}
+                  {%- set callsymboldim = apidef.callSymbolDim.elements[apidef.callSymbolDim.elements['name']==value['name']] -%}
+                  {%- if callsymboldim.shape[0] > 0 %}
+   sidim_{{ fvalue['arg'] }} = dll_gdxsymboldim(p{{ apidef.Prefix }}.p, SyNr)
+                  {%- else                          %}
+   sidim_{{ fvalue['arg'] }} = dll_gdxcurrentdim(p{{ apidef.Prefix }}.p)
+                  {%- endif -%}
+               {%- else                          %}
+   sidim_{{ fvalue['arg'] }} = dll_gdxcurrentdim(p{{ apidef.Prefix }}.p)
+               {%- endif %}
+   If({{ value['name'] }} <> 0) Then
+             {%- elif MaxDimStyle == 'gmd' -%}
+                {%- if (apidef.useADim is defined) and (apidef.useADim.elements.shape[0] >0) and
+                       (value['name'] in apidef.useADim.elements['name'].tolist()) %}
+   sidim_{{ fvalue['arg'] }} = aDim
+                {%- else                                                                                                       %}
+   dim sidim_rc as integer
+   sidim_rc = dll_gmdsymboldim(pgmd.p,symptr.p,sidim_{{ fvalue['arg'] }})
+                {%- endif -%}
+             {%- endif %}
+   For i_{{ fvalue['arg'] }} = 0 To sidim_{{ fvalue['arg'] }}
+      Call ConvertPAS2BAS(cpy_{{ fvalue['arg'] }}(i_{{ fvalue['arg'] }}).s,{{ fvalue['arg'] }}(i_{{ fvalue['arg'] }}))
+   Next i_{{ fvalue['arg'] }}
+             {%- if MaxDimStyle == 'gdx' %}
+   End If
+             {%- endif -%}
+         {%- endif -%}
+       {%- endif -%}
+    {%- endfor -%} {#- f #}
+    {%- if value['type'] == 'void' %}
+End Sub
+    {%- else                       %}
+End Function
+    {%- endif %}
+
+  {%- endif %}
+
+{%- endfor -%} {#- tfunc #}
+
+{%- if apidef.pn.elements.shape[0] > 0 -%} 
+  {%- set pnr  = apidef.pn.elements[apidef.pn.elements['pactions']=='r'] -%}
+  {%- for key,value in pnr[pnr['type']=='oss'].iterrows() if pnr.shape[0] > 0 %}
+
+Public Function {{ value['name'] }}(p{{ apidef.Prefix }} As vbaptr) As String
+   Dim cpy_result(str_len) As Byte
+   Call dll_{{ value['name'] }}(p{{ apidef.Prefix }}.p, cpy_result(0))
+   Call convertc2bas(cpy_result, {{ value['name'] }})
+End Function
+  {%- endfor -%} {#- pn,r,oss #}
+
+  {%- for key,value in pnr[pnr['type']=='bool'].iterrows() if pnr.shape[0] > 0 %}
+
+Public Function {{ value['name'] }}(p{{ apidef.Prefix }} As vbaptr) As Boolean
+   {{ value['name'] }} = dll_{{ value['name'] }}(p{{ apidef.Prefix }}.p)
+End Function
+
+  {%- endfor -%} {#- pn,r,bool #}
+
+  {%- set pnw  = apidef.pn.elements[apidef.pn.elements['pactions']=='w'] -%}
+  {%- for key,value in pnw[pnw['type']=='bool'].iterrows() if pnw.shape[0] > 0 %}
+
+Public Sub {{ value['name'] }}Set(p{{ apidef.Prefix }} As vbaptr, x As Long)
+   Call dll_{{ value['name'] }}Set(p{{ apidef.Prefix }}.p,x)
+End Sub
+
+  {%- endfor -%} {#- pn,w,bool #}
+
+  {%- for key,value in pnr[pnr['type']=='ptr'].iterrows() if pnr.shape[0] > 0 %}
+
+Public Function {{ value['name'] }}(p{{ apidef.Prefix }} As vbaptr) As vbaptr
+   {{ value['name'] }}.p = dll_{{ value['name'] }}(p{{ apidef.Prefix }}.p)
+End Function
+  {%- endfor -%} {#- pn,r,ptr #}
+
+  {%- for key,value in pnw[pnw['type']=='ptr'].iterrows() if pnw.shape[0] > 0 %}
+
+Public Sub {{ value['name'] }}Set(p{{ apidef.Prefix }} As vbaptr, x As vbaptr)
+   Call dll_{{ value['name'] }}Set(p{{ apidef.Prefix }}.p,x.p)
+End Sub
+  {%- endfor -%} {#- pn,w,ptr #}
+
+  {%- for key,value in pnr.iterrows() if pnr.shape[0] > 0 -%}
+     {%- if value['type'] not in ['bool', 'ptr'] %}
+
+Public Function {{ value['name'] }}(p{{ apidef.Prefix }} As vbaptr) As {{ VBAType(value['type']) }}
+   {{ value['name'] }} = dll_{{ value['name'] }}(p{{ apidef.Prefix }}.p)
+End Function
+     {%- endif %}
+  {%- endfor -%} {#- pnr #}
+
+  {%- for key,value in pnw.iterrows() if pnw.shape[0] > 0 -%}
+     {%- if value['type'] not in ['bool', 'ptr'] %}
+
+Public Sub {{ value['name'] }}Set(p{{ apidef.Prefix }} As vbaptr, x As {{ VBAType(value['type']) }})
+   Call dll_{{ value['name'] }}Set(p{{ apidef.Prefix }}.p,x)
+End Sub
+     {%- endif %}
+  {%- endfor -%} {#- pn2 #}
+{%- endif %}
+
+{% endblock -%}

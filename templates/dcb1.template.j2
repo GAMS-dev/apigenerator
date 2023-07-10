@@ -1,0 +1,64 @@
+{%- extends "delphibase.template.j2" -%}
+
+{%- block content -%}
+{%- set tpp  = datadef.tpp.elements['tp'].tolist()  -%}
+{%- set fval = datadef.FVal.elements['ta'].tolist() -%}
+type
+{%- for key,value in apidef.tPtrFunc.elements.iterrows() %}
+   {{ value['name'] }} =
+    {%- if value['type'] == 'void' %} procedure
+    {%- else                       %} function
+    {%- endif -%}
+(
+    {%- set counter = namespace(argpos = 1) -%}
+    {%- set ptrf    = apidef.PtrF.elements[apidef.PtrF.elements.name==value['name']] -%}
+    {%- set ptrftpp = ptrf[ptrf['apos'].isin(tpp)]                                   -%}
+    {%- for fkey,fvalue in ptrftpp.iterrows() if ptrf.shape[0] > 0 %}
+       {%- if fvalue['type'] == 'bool'%}{{ DCall(fvalue['type']) }}{{ fvalue['arg'] }}: Integer
+       {%- else                       %}{{ DCall(fvalue['type']) }}{{ fvalue['arg'] }}: {{ DType(fvalue['type']) }}
+       {%- endif -%}
+       {%- if counter.argpos < ptrftpp.shape[0] -%}; {% endif -%}
+       {%- set counter.argpos = counter.argpos + 1 -%}
+    {%- endfor -%}
+)
+    {%- if value['type'] == 'void' -%} ;
+    {%- else                       -%} : {{ DType(value['type']) }};
+    {%- endif %} stdcall;
+{%- endfor %}
+{%- for key,value in apidef.tPtrFunc.elements.iterrows() 
+    if apidef.PFtrF.elements.shape[0] > 0 and value['name'] in apidef.PFtrF.elements['name'].tolist() %}
+   {{ value['name'] }}_F =
+    {%- if value['type'] == 'void' %} procedure
+    {%- else                       %} function
+    {%- endif -%}
+(
+    {%- set counter = namespace(argpos = 1) -%}
+    {%- set ptrf    = apidef.PtrF.elements[apidef.PtrF.elements['name']==value['name']] -%}
+    {%- set ptrftpp = ptrf[ptrf['apos'].isin(tpp)]                                      -%}
+    {%- set typeInteger = ['c','cpc','css','csi']                                       -%}
+    {%- set ptrftppint = ptrftpp[ptrftpp['type'].isin(typeInteger)]                     -%}
+    {%- for fkey,fvalue in ptrftpp.iterrows() if ptrf.shape[0] > 0 -%}
+        {#- LW csi? compare to glue code -#}
+        {%- if fvalue['type'] == 'ptr'  -%} var {{ fvalue['arg'] }}: Int64
+        {%- elif fvalue['type'] in fval -%} 
+            {%- if fvalue['type'] == 'bool' -%} var {{ fvalue['arg'] }}: Integer
+            {%- else                        -%} var {{ fvalue['arg'] }}: {{ DType(fvalue['type']) }}
+            {%- endif -%}
+        {%- elif fvalue['type'] == 'c'  -%} {{ DCall(fvalue['type']) }}{{ fvalue['arg'] }}: pAnsiChar
+        {%- else                        -%} {{ DCall(fvalue['type']) }}{{ fvalue['arg'] }}: {{ DType(fvalue['type']) }}
+        {%- endif -%}
+        {%- if counter.argpos < ptrftpp.shape[0] or ptrftppint.shape[0] > 0 -%}; {% endif -%}
+        {%- set counter.argpos = counter.argpos + 1 -%}
+    {%- endfor %}
+    {%- set counter = namespace(argpos = 1) -%}
+    {%- for fkey,fvalue in ptrftppint.iterrows() -%}
+len_{{ fvalue['arg'] }}: {$IFDEF CIA_DAX} int64 {$ELSE} Integer {$ENDIF}
+       {%- if counter.argpos < ptrftppint.shape[0] -%}; {% endif -%}
+       {%- set counter.argpos = counter.argpos + 1 -%}
+    {%- endfor -%}
+)
+    {%- if value['type'] == 'void' -%} ;
+    {%- else                       -%} : {{ DType(value['type']) }};
+    {%- endif %} stdcall;
+{%- endfor %}
+{% endblock %}

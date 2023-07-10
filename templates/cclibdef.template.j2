@@ -1,0 +1,192 @@
+{%- set cprefix = 'c' -%}
+{%- set dprefix = 'd' -%}
+{%- set fprefix = 'f' -%}
+{%- set nprefix = 'n' -%}
+{%- set apivprefix = 'apiv' -%}
+{%- if apidef.FCLIB -%}
+   {%- set cprefix = 'C'   -%}
+   {%- set dprefix = 'D' -%}
+   {%- set fprefix = 'F' -%}
+   {%- set nprefix = 'N' -%}
+   {%- set apivprefix = 'APIV' -%}
+{%- endif -%}
+{%- set multicheck = false  -%}
+
+LIBRARY {{ apidef.CLib }}.dll
+EXPORTS
+{#- ToDo $if not set FCLIB ccdef.case=2; ccdef.lcase=1; -#}
+{% for pre in apidef.pre.elements['prefix'].tolist() -%}
+
+   {%- set entmp = apidef.enp.elements[apidef.enp.elements['prefix']==pre]['element'].tolist() -%}
+   {%- set prefix  = apidef.pre.elements[apidef.pre.elements['prefix']==pre]['text'].iloc[0].lower() -%}
+   {%- set prexfix = apidef.prex.elements[apidef.prex.elements['prefix']==pre]['text'].iloc[0].lower() %}
+   {%- if apidef.FCLIB -%}
+       {%- set prefix  = apidef.pre.elements[apidef.pre.elements['prefix']==pre]['text'].iloc[0].upper() -%}
+       {%- set prexfix = apidef.prex.elements[apidef.prex.elements['prefix']==pre]['text'].iloc[0].upper() %}
+   {%- endif %}
+   {%- set usecd = false -%}
+   {%- if apidef.UseCD.elements.shape[0] > 0 -%}
+     {%- if apidef.UseCD.elements[apidef.UseCD.elements['prefix']==pre].shape[0] > 0 -%}
+         {%- set usecd = true -%}
+     {%- endif -%}
+   {%- endif %}
+{{ prexfix }}{{ cprefix }}reate
+   {%- if usecd %}
+{{ prexfix }}{{ cprefix }}reated
+{{ dprefix }}__{{ prexfix }}{{ cprefix }}reated
+   {%- endif %}
+{{ prexfix }}{{ fprefix }}ree
+   {%- if not apidef.FCLIB %}
+{{ prefix }}create
+{{ prefix }}free
+      {%- if usecd %}
+{{ prefix }}created
+{{ dprefix }}__{{prefix }}created
+      {%- endif -%}
+   {%- endif %}
+{{ cprefix }}__{{ prexfix }}{{ apivprefix }}ersion
+{{ dprefix }}__{{ prexfix }}{{ apivprefix }}ersion
+{{ cprefix }}__{{ prexfix }}{{ cprefix }}heck
+{{ dprefix }}__{{ prexfix }}{{ cprefix }}heck
+   {%- if apidef.multi == multicheck %}
+{{prefix }}{{ prexfix }}create
+      {%- if usecd %}
+{{prefix }}{{ prexfix }}created
+{{ dprefix }}__{{prefix }}{{ prexfix }}created
+      {%- endif -%} {#- usecd #}
+{{prefix }}{{ prexfix }}free
+{{ dprefix }}__{{prefix }}{{ prexfix }}apiversion
+{{ dprefix }}__{{prefix }}{{ prexfix }}check
+   {%- endif -%}
+   {%- if (apidef.hif.elements.shape[0] > 0) and (prefix in (apidef.hif.elements['prefix'].tolist())) %}
+{{ cprefix }}__{{prefix }}initialize
+{{ cprefix }}__{{prefix }}finalize
+   {%- endif -%} {#- apidef.hif -#}
+
+{%- endfor -%}
+
+{%- for pre in apidef.pre.elements['prefix'].tolist() -%}
+
+{%- set prefix  = apidef.pre.elements[apidef.pre.elements['prefix']==pre]['text'].iloc[0].lower()   -%}
+{%- set prexfix = apidef.prex.elements[apidef.prex.elements['prefix']==pre]['text'].iloc[0].lower() -%}
+{%- set entmp = apidef.enp.elements[apidef.enp.elements['prefix']==pre]['element'].tolist() -%}
+{%- for key,value in apidef.tfunc.elements[apidef.tfunc.elements['name'].isin(entmp)].iterrows() %}
+{{ cprefix }}__{{ value['name'].lower() }}
+{%- endfor -%}
+{%- set enstring = apidef.enstring.elements[apidef.enstring.elements['name'].isin(entmp)]['name'].tolist() -%}
+{%- for key,value in apidef.tfunc.elements[apidef.tfunc.elements['name'].isin(enstring)].iterrows() %}
+{{ dprefix }}__{{ value['name'].lower() }}
+{%- endfor -%}
+{%- set enostringa = apidef.enostringa.elements[apidef.enostringa.elements['name'].isin(entmp)]['name'].tolist() -%}
+{%- for key,value in apidef.tfunc.elements[apidef.tfunc.elements['name'].isin(enostringa)].iterrows() %}
+{{ nprefix }}__{{ value['name'].lower() }}
+{%- endfor -%}
+{%- if not apidef.NOFORTRANCB -%}
+   {%- for key,value in apidef.tfunc.elements[apidef.tfunc.elements['name'].isin(entmp)].iterrows() if apidef.PFtrF.elements.shape[0] > 0 %}
+      {%- set pftrf = apidef.PFtrF.elements['name'] -%}
+      {%- set fm = apidef.FuncMap.elements[apidef.FuncMap.elements['name'].isin(pftrf)]  -%}
+      {%- set fmdef = fm[fm['def']==value['name']]                                       -%}
+      {%- if fmdef.shape[0] > 0 %}
+{{ fprefix }}__{{ value['name'].lower() }}
+      {%- endif -%}      
+   {%- endfor -%}
+{%- endif -%}
+{%- if apidef.tprop.elements.shape[0] > 0 -%}
+   {%- for e in apidef.tprop.elements[apidef.tprop.elements['name'].isin(entmp)]['name'].tolist() -%}
+       {%- for k,v in apidef.pn.elements[apidef.pn.elements['name']==e].iterrows()  -%}
+           {%- if v['pactions'] == 'r' %}
+{{ cprefix }}__{{ e.lower() }}
+           {%- else %}
+{{ cprefix }}__{{ e.lower() }}set
+           {%- endif -%}
+       {%- endfor -%}
+   {%- endfor -%}
+{%- endif -%}
+
+{%- endfor -%}
+
+{%- for pre in apidef.pre.elements['prefix'].tolist() -%}
+   {%- set usecd = false -%}
+   {%- if apidef.UseCD.elements.shape[0] > 0 -%}
+     {%- if apidef.UseCD.elements[apidef.UseCD.elements['prefix']==pre].shape[0] > 0 -%}
+         {%- set usecd = true -%}
+     {%- endif -%}
+   {%- endif %}
+   {%- set prefix  = apidef.pre.elements[apidef.pre.elements['prefix']==pre]['text'].iloc[0].lower()          -%}
+   {%- set prexfix = apidef.prex.elements[apidef.prex.elements['prefix']==pre]['text'].iloc[0].lower().lower() %}
+{{ prexfix }}{{ cprefix }}reate_={{ prexfix }}{{ cprefix }}reate
+   {%- if usecd %}
+{{ prexfix }}{{ cprefix }}reated_={{ prexfix }}{{ cprefix }}reated
+   {%- endif %}
+{{ prexfix }}{{ fprefix }}ree_={{ prexfix }}{{ fprefix }}ree
+   {%- if not apidef.FCLIB %}
+{{ prefix }}create_={{ prefix }}create
+{{ prefix }}free_={{ prefix }}free
+     {%- if usecd %}
+{{ prefix }}created_={{ prefix }}created
+{{ dprefix }}__{{ prefix }}created_={{ dprefix }}__{{ prefix }}created
+     {%- endif -%}
+   {%- endif -%}
+   {%- set entmp = apidef.enp.elements[apidef.enp.elements['prefix']==pre]['element'].tolist() -%}
+   {%- if apidef.multi == multicheck %}
+{{ prefix }}{{ prexfix }}create_={{ prefix }}{{ prexfix }}create
+       {%- if usecd %}
+{{ prefix }}{{ prexfix }}created_={{ prefix }}{{ prexfix }}created
+{{ dprefix }}__{{ prefix }}{{ prexfix }}created_={{ dprefix }}__{{ prefix }}{{ prexfix }}created
+       {%- endif %}
+{{ prefix }}{{ prexfix }}free_={{ prefix }}{{ prexfix }}free
+   {%- endif -%}
+   {%- if (apidef.hif.elements.shape[0] > 0) and (prefix in (apidef.hif.elements['prefix'].tolist())) %}
+{{ prefix }}initialize_={{ cprefix }}__{{ pre }}initialize
+{{ prefix }}finalize_={{ cprefix }}__{{ pre }}finalize
+   {%- endif -%}
+
+{%- endfor -%}
+
+{%- for pre in apidef.pre.elements['prefix'].tolist() -%}
+   {%- set entmp    = apidef.enp.elements[apidef.enp.elements['prefix']==pre]['element'].tolist()   -%}
+   {%- set enstring = apidef.enstring.elements[apidef.enstring.elements['name'].isin(entmp)]        -%}
+   {%- set fmfpf    = namespace(value=False)                                                        -%}
+   {%- for key,value in apidef.tfunc.elements[apidef.tfunc.elements['name'].isin(entmp)].iterrows() -%}
+      {%- set fpf        = apidef.fpf.elements['def']                                               -%}
+      {%- set enstrentmp = enstring[enstring['name'].isin(entmp)]['name'].tolist()                  -%}
+      {%- if apidef.PFtrF.elements.shape[0] > 0 %} 
+         {%- set pftrf    = apidef.PFtrF.elements['name']                                               -%}
+         {%- set fm    = apidef.FuncMap.elements[apidef.FuncMap.elements['name'].isin(pftrf.tolist())]  -%}
+         {%- set fmdef = fm[fm['def']==value['name']]                                                   -%}
+         {%- set fmfpf.value = (fmdef.shape[0] > 0)                                                    -%}
+      {%- endif -%}
+      {%- if (value['name'] not in enstring['name'].tolist()) and not (fmfpf.value) %}
+{{ value['name'].lower() }}_={{ cprefix }}__{{ value['name'].lower() }}
+         {%- endif -%}
+   {%- endfor -%}
+   {%- for key,value in apidef.tfunc.elements[apidef.tfunc.elements['name'].isin(enstring['name'])].iterrows() %}
+{{ value['name'].lower() }}_={{ dprefix }}__{{ value['name'].lower() }}
+   {%- endfor -%}
+{#- 
+*   loop(tfunc(enostringa(entmp),ta),
+*      put entmp.tl '_=%nprefix%__' entmp.tl /;
+*   ); 
+-#}   
+   {%- if not apidef.NOFORTRANCB and apidef.fpf.elements.shape[0] > 0 -%}
+      {%- set fpf  = apidef.fpf.elements['def'].iloc[0]                              -%}
+      {%- set funcmap = apidef.FuncMap.elements[apidef.FuncMap.elements['def']==fpf] -%}
+      {%- set fentmp = apidef.f.elements[apidef.f.elements['name'] == fpf]           -%}
+      {#%- set f = apidef.f.elements[apidef.f.elements['pos'].isin(tpp)]              -%#}
+      {%- for k,v in apidef.f.elements[apidef.f.elements['type']=='funcptr'].iterrows() if funcmap.shape[0] > 0 %}
+{{ fprefix.lower() }}{{ v['name'].lower() }}_={{ fprefix.lower() }}__{{ v['name'].lower() }}
+      {%- endfor -%}
+   {%- endif -%}
+   {%- if apidef.tprop.elements.shape[0] > 0 and apidef.pn.elements.shape[0] > 0 -%}
+      {%- for e in apidef.tprop.elements[apidef.tprop.elements['name'].isin(entmp)]['name'].tolist() -%}
+        {%- for k,v in apidef.pn.elements[apidef.pn.elements['name']==e].iterrows()  -%}
+           {%- if v['pactions'] == 'r' %}
+{{ e.lower() }}_={{ cprefix }}__{{ e.lower() }}
+           {%- else %}
+{{ e.lower() }}set_={{ cprefix }}__{{ e.lower() }}set
+           {%- endif -%}
+        {%- endfor -%}
+      {%- endfor -%}
+   {%- endif -%}
+
+{%- endfor -%}

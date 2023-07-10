@@ -1,0 +1,1133 @@
+{%- extends "cbase.template.j2" -%}
+
+{%- block header -%}
+Java Native Interface code {{ api.generatedstr }}
+{%- endblock -%}
+
+{%- macro jniType(type) -%}
+{{ datadef.jniType.elements[datadef.jniType.elements['ta']==type]['text'].iloc[0] }}
+{%- endmacro -%}
+
+{%- macro jniTMod(type) -%}
+{{ datadef.jniTMod.elements[datadef.JTMod.elements['ta']==type]['text'].iloc[0] }}
+{%- endmacro -%}
+
+{%- macro jniCall(type) -%}
+{{ datadef.jniCall.elements[datadef.jniCall.elements['ta']==type]['text'].iloc[0] }}
+{%- endmacro -%}
+
+{%- macro jniSig(type) -%}
+{{ datadef.jniSig.elements[datadef.jniSig.elements['ta']==type]['text'].iloc[0] }}
+{%- endmacro -%}
+
+{%- macro pArrLen(name,arg) -%}
+  {%- if apidef.pArrLen.elements.shape[0] > 0  -%}
+    {%- set arrlen = apidef.pArrLen.elements[apidef.pArrLen.elements['name']==name] -%}
+    {%- if arrlen.shape[0] > 0  -%}
+        {%- set arrlen = apidef.pArrLen.elements[apidef.pArrLen.elements['arg']==arg] -%}
+        {%- if arrlen.shape[0] > 0 -%} {{ arrlen['value'].iloc[0] }}
+        {%- else                   -%} 0
+        {%- endif -%}
+    {%- else                    -%} 0
+    {%- endif -%}
+  {%- else                                     -%} 0
+  {%- endif -%}
+{%- endmacro -%}
+
+{%- macro nameWithoutPrefix(prefix, name) -%}
+{{ name[prefix|length : name|length] }}
+{%- endmacro -%}
+
+{%- block content -%}
+#include <jni.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+/* #include <locale.h> */
+#include <{{ apidef.CCall }}.h>
+
+/* at least for some JNI implementations, JNIEXPORT is not setup to
+ * explicitly set visibility to default when using GNU compilers;
+ * thus, we do this globally for all functions via this pragma
+ *  (which is nicer than redefining JNIEXPORT)
+ */
+#ifdef __GNUC__
+#pragma GCC visibility push(default)
+#endif
+
+typedef union foo { void *p; jlong i; } u64_t;
+
+typedef char string255[256];
+
+{%- if apidef.gamsta.value %}
+typedef char stringUEL[GLOBAL_UEL_IDENT_SIZE];
+{%- endif %}
+
+{%- set MaxDimStyle = '' -%}
+{%- if ((apidef.MaxDimStyle is defined) and (apidef.MaxDimStyle.elements.shape[0] > 0)) -%}
+    {%- set mds = apidef.MaxDimStyle.elements[apidef.MaxDimStyle.elements['prefix']==apidef.Prefix] -%}
+    {%- if mds.shape[0] > 0 -%}
+        {%- set MaxDimStyle = mds['prefix'].iloc[0] -%}
+    {%- endif -%}
+{%- endif -%}
+{%- set tpp = datadef.tpp.elements['tp'].tolist() -%}
+{%- for key,value in apidef.f.elements[apidef.f.elements['pos'].isin(tpp)].iterrows() if apidef.f.elements.shape[0] > 0 -%}
+   {%- if value['type']=='funcptr' %}
+static char* sig_{{ value['name'] }}_{{ value['arg'] }} = NULL;
+   {%- endif -%}
+{%- endfor -%} {#- f #}
+
+{%- set enprop = [] -%}
+{%- if apidef.pn.elements.shape[0] > 0  -%}
+   {%- set enprop = apidef.pn.elements['name'].tolist() -%}
+{%- endif -%}
+{%- if apidef.fpf.elements.shape[0] > 0 and apidef.pn.elements.shape[0] > 0  -%}
+{%- for key,value in apidef.fpf.elements[apidef.fpf.elements['def'].isin(enprop)].iterrows() %}
+static char* sig_{{ value['def'] }}_prop = NULL;
+{%- endfor -%} {#- fpf #}
+{%- endif -%}
+
+{%- for key,value in apidef.f.elements[apidef.f.elements['pos'].isin(tpp)].iterrows() if apidef.f.elements.shape[0] > 0 -%}
+   {%- if value['type']=='funcptr' %}
+static char* methodname_{{ value['name'] }}_{{ value['arg'] }} = NULL;
+   {%- endif -%}
+{%- endfor -%} {#- f #}
+
+{%- if apidef.fpf.elements.shape[0] > 0 and apidef.pn.elements.shape[0] > 0  -%}
+{%- for key,value in apidef.fpf.elements[apidef.fpf.elements['def'].isin(enprop)].iterrows()
+    if apidef.fpf.elements.shape[0] > 0 and apidef.pn.elements.shape[0] > 0  %}
+static char* methodname_{{ value['def'] }}_prop = NULL;
+{%- endfor -%} {#- fpf #}
+{%- endif -%}
+
+{%- for key,value in apidef.f.elements[apidef.f.elements['pos'].isin(tpp)].iterrows() if apidef.f.elements.shape[0] > 0 -%}
+   {%- if value['type']=='funcptr' %}
+static char* classname_{{ value['name'] }}_{{ value['arg'] }} = NULL;
+   {%- endif -%}
+{% endfor -%} {#- f #}
+
+{%- if apidef.fpf.elements.shape[0] > 0 and apidef.pn.elements.shape[0] > 0  -%}
+{%- for key,value in apidef.fpf.elements[apidef.fpf.elements['def'].isin(enprop)].iterrows()  %}
+static char* classname_{{ value['def'] }}_prop = NULL;
+{%- endfor -%} {#- fpf #}
+{%- endif -%}
+
+{%- for key,value in apidef.f.elements[apidef.f.elements['pos'].isin(tpp)].iterrows() if apidef.f.elements.shape[0] > 0 -%}
+   {%- if value['type']=='funcptr' %}
+     {%-if apidef.FuncMap.elements.shape[0] > 0 -%}
+        {%- for fmkey,fmvalue in apidef.FuncMap.elements[apidef.FuncMap.elements['def']==value['name']].iterrows()
+            if apidef.FuncMap.elements.shape[0] > 0  and fmvalue['fpos']==value['pos'] -%}
+           {%- for pfkey,pfvalue in apidef.PtrF.elements.iterrows() if pfvalue['name']==fmvalue['name'] -%}
+               {%- for tkey,tvalue in apidef.tPtrFunc.elements[apidef.tPtrFunc.elements['name']==fmvalue['name']].iterrows()
+                       if apidef.tPtrFunc.elements.shape[0] > 0 %}
+                   {%- if pfvalue['type'] in datadef.taar.elements['ta'].tolist() and
+                          pfvalue['type'] not in ['csi','osi'] %}
+static {{ jniType(pfvalue['type']) }} {{ value['name'] }}_{{ pfvalue['arg'] }} = NULL;
+                   {%- endif -%}
+               {%- endfor -%}
+           {%- endfor -%}
+        {%- endfor -%}
+     {%- endif -%}
+   {%- endif -%}
+{% endfor -%} {#- f #}
+
+{%- if (apidef.haveTypedefs.elements.shape[0] > 0 and 
+        apidef.Prefix in apidef.haveTypedefs.elements['prefix'].tolist()) %}
+static char  ClassDotMethodName[512];
+static int   ReturnName = 0;
+
+static void printerr(const char *mess, const char*name)
+{
+   fprintf(stderr,"%s: %s\n",mess,name);
+   exit(1);
+}
+
+static char* getMethodName_(const char* name)
+{
+    char *s;
+    s = strrchr(name,'.');
+    if (s==NULL)
+        return NULL;
+    ++s;
+    return strdup(s);
+}
+
+static char* getClassName_(const char* name)
+{
+    char *s;
+    char *t;
+    t = strdup(name);
+    s = strrchr(t,'.');
+    if (s==NULL)
+        return NULL;
+    *s = '\0';
+    return t;
+}
+{%- endif %}
+
+static JavaVM *Cached_JVM = NULL;
+JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved)
+{
+    Cached_JVM = vm;
+    {{ apidef.Prefix }}InitMutexes();
+    return JNI_VERSION_1_2;
+}
+
+JNIEXPORT void JNICALL JNI_OnUnload(JavaVM *vm, void *reserved)
+{
+    {{ apidef.Prefix }}FiniMutexes();
+}
+
+/* Prototypes */
+JNIEXPORT jint JNICALL Java_com_gams_api_{{ apidef.JavaCall }}_GetReady(JNIEnv *env, jobject obj, jobjectArray msg);
+JNIEXPORT jint JNICALL Java_com_gams_api_{{ apidef.JavaCall }}_GetReadyD(JNIEnv *env, jobject obj, jstring dirName, jobjectArray msg);
+JNIEXPORT jint JNICALL Java_com_gams_api_{{ apidef.JavaCall }}_GetReadyL(JNIEnv *env, jobject obj, jstring libName, jobjectArray msg);
+JNIEXPORT jint JNICALL Java_com_gams_api_{{ apidef.JavaCall }}_Create(JNIEnv *env, jobject obj, jobjectArray msg);
+JNIEXPORT jint JNICALL Java_com_gams_api_{{ apidef.JavaCall }}_CreateD(JNIEnv *env, jobject obj, jstring dirName, jobjectArray msg);
+{%- if apidef.UseCD.elements.shape[0] > 0 and  apidef.Prefix in apidef.UseCD.elements['prefix'].tolist() %}
+JNIEXPORT jint JNICALL Java_com_gams_api_{{ apidef.JavaCall }}_CreateDD(JNIEnv *env, jobject obj, jstring dirName, jobjectArray msg);
+{%- endif %}
+JNIEXPORT jint JNICALL Java_com_gams_api_{{ apidef.JavaCall }}_CreateL(JNIEnv *env, jobject obj, jstring libName, jobjectArray msg);
+JNIEXPORT jint JNICALL Java_com_gams_api_{{ apidef.JavaCall }}_Free(JNIEnv *env, jobject obj);
+
+{%- for key,value in apidef.tfunc.elements.iterrows() %}
+JNIEXPORT
+   {%- if value['type'] not in ['pc','oss','funcptr'] %} {{ jniType(value['type']) }}{{ jniCall(value['type']) }}
+   {%- else                                           %} jstring
+   {%- endif %} JNICALL Java_com_gams_api_{{ apidef.JavaCall }}_{{ nameWithoutPrefix(apidef.Prefix,value['name']) }}
+   {%- if apidef.internalCS.elements.shape[0] > 0 and
+          value['name']  in apidef.internalCS.elements['name'].tolist() -%} (JNIEnv *env, jclass cls
+   {%- else                                                             -%} (JNIEnv *env, jobject obj
+   {%- endif %}
+   {%- set f = apidef.f.elements[apidef.f.elements['name']==value['name']] -%}
+   {%- set counter = namespace(argpos=0)                                   -%}
+   {%- for fkey,fvalue in f[f['pos'].isin(tpp)].iterrows() if f.shape[0] > 0 -%}
+       {%- if fvalue['type'] == 'funcptr' -%}, jstring
+       {%- else                           -%}, {{ jniType(fvalue['type']) }}
+       {%- endif %} {{ fvalue['arg'] }}
+   {%- endfor %}
+   {%- if value['type'] == 'oss' -%} , jobjectArray sst_result
+   {%- endif -%}
+);
+{%- endfor -%} {#- tfunc #}
+
+{%- for pkey,pvalue in apidef.pn.elements.iterrows() %}
+JNIEXPORT 
+   {%- if pvalue['pactions']=='r' -%}
+       {%- if pvalue['type'] not in ['pc','oss','funcptr'] %} {{ jniType(pvalue['type']) }}{{ jniCall(pvalue['type']) }}
+       {%- else                                            %} jstring
+       {%- endif %} JNICALL Java_com_gams_api_{{ apidef.JavaCall }}_{{ nameWithoutPrefix(apidef.Prefix,pvalue['name']) }}(JNIEnv *env, jobject obj
+       {%- if pvalue['type'] == 'oss' -%} , jobjectArray sst_result
+       {%- endif -%} );
+    {%- else                        %} void JNICALL Java_com_gams_api_{{ apidef.JavaCall }}_{{ nameWithoutPrefix(apidef.Prefix,pvalue['name']) }}Set(JNIEnv *env, jobject obj,
+       {%- if pvalue['type'] not in ['pc','oss','funcptr'] %} {{ jniType(pvalue['type']) }}{{ jniCall(pvalue['type']) }}
+       {%- else                                            %} jstring 
+       {%- endif %} x);
+    {%- endif -%}
+{%- endfor -%} {#- pn #}
+
+JNIEXPORT jint JNICALL Java_com_gams_api_{{ apidef.JavaCall }}_GetReady(JNIEnv *env, jobject obj, jobjectArray msg)
+{
+   int rc_GetReady;
+   jstring local_msg;
+   char buffer_msg[256];
+   rc_GetReady = {{ apidef.Prefix }}GetReady(buffer_msg, sizeof(buffer_msg));
+   local_msg = (*env)->NewStringUTF(env, buffer_msg);
+   (*env)->SetObjectArrayElement(env, msg, 0, local_msg);
+   return rc_GetReady;
+}
+
+JNIEXPORT jint JNICALL Java_com_gams_api_{{ apidef.JavaCall }}_GetReadyD(JNIEnv *env, jobject obj, jstring dirName, jobjectArray msg)
+{
+   int rc_GetReadyD;
+   char *local_dirName;
+   jstring local_msg;
+   char buffer_msg[256];
+   buffer_msg[0] = '\0';
+   local_dirName = (char *) (*env)->GetStringUTFChars(env, dirName, NULL);
+   rc_GetReadyD = {{ apidef.Prefix }}GetReadyD(local_dirName, buffer_msg, sizeof(buffer_msg));
+   (*env)->ReleaseStringUTFChars(env, dirName, local_dirName);
+   local_msg = (*env)->NewStringUTF(env, buffer_msg);
+   (*env)->SetObjectArrayElement(env, msg, 0, local_msg);
+   return rc_GetReadyD;
+}
+
+JNIEXPORT jint JNICALL Java_com_gams_api_{{ apidef.JavaCall }}_GetReadyL(JNIEnv *env, jobject obj, jstring libName, jobjectArray msg)
+{
+   int rc_GetReadyL;
+   char *local_libName;
+   jstring local_msg;
+   char buffer_msg[256];
+   buffer_msg[0] = '\0';
+   local_libName = (char *) (*env)->GetStringUTFChars(env, libName, NULL);
+   rc_GetReadyL = {{ apidef.Prefix }}GetReadyL(local_libName, buffer_msg, sizeof(buffer_msg));
+   (*env)->ReleaseStringUTFChars(env, libName, local_libName);
+   local_msg = (*env)->NewStringUTF(env, buffer_msg);
+   (*env)->SetObjectArrayElement(env, msg, 0, local_msg);
+   return rc_GetReadyL;
+}
+
+JNIEXPORT jint JNICALL Java_com_gams_api_{{ apidef.JavaCall }}_Create(JNIEnv *env, jobject obj, jobjectArray msg)
+{
+   int rc_Create;
+   jfieldID fid;
+   u64_t p{{ apidef.Prefix }};
+   jstring local_msg;
+   char buffer_msg[256];
+   jclass cls = (*env)->GetObjectClass(env, obj);
+   buffer_msg[0] = '\0';
+   fid = (*env)->GetFieldID(env, cls, "{{ apidef.Prefix }}Ptr", "J");
+   if (fid == NULL) return 0;
+   p{{ apidef.Prefix }}.i = (*env)->GetLongField(env, obj, fid);
+   rc_Create = {{ apidef.Prefix }}Create(({{ apidef.Prefix }}Handle_t *)&p{{ apidef.Prefix }}.p, buffer_msg, sizeof(buffer_msg));
+   local_msg = (*env)->NewStringUTF(env, buffer_msg);
+   (*env)->SetObjectArrayElement(env, msg, 0, local_msg);
+   (*env)->SetLongField(env, obj, fid, p{{ apidef.Prefix }}.i);
+   return rc_Create;
+}
+
+JNIEXPORT jint JNICALL Java_com_gams_api_{{ apidef.JavaCall }}_CreateD(JNIEnv *env, jobject obj, jstring dirName, jobjectArray msg)
+{
+   int rc_CreateD;
+   jfieldID fid;
+   u64_t p{{ apidef.Prefix }};
+   char *local_dirName;
+   jstring local_msg;
+   char buffer_msg[256];
+   jclass cls = (*env)->GetObjectClass(env, obj);
+   buffer_msg[0] = '\0';
+   fid = (*env)->GetFieldID(env, cls, "{{ apidef.Prefix }}Ptr", "J");
+   if (fid == NULL) return 0;
+   p{{ apidef.Prefix }}.i = (*env)->GetLongField(env, obj, fid);
+   local_dirName = (char *) (*env)->GetStringUTFChars(env, dirName, NULL);
+   rc_CreateD = {{ apidef.Prefix }}CreateD(({{ apidef.Prefix }}Handle_t *)&p{{ apidef.Prefix }}.p, local_dirName, buffer_msg, sizeof(buffer_msg));
+   (*env)->ReleaseStringUTFChars(env, dirName, local_dirName);
+   local_msg = (*env)->NewStringUTF(env, buffer_msg);
+   (*env)->SetObjectArrayElement(env, msg, 0, local_msg);
+   (*env)->SetLongField(env, obj, fid, p{{ apidef.Prefix }}.i);
+   return rc_CreateD;
+}
+
+{%- if apidef.UseCD.elements.shape[0] > 0 and  apidef.Prefix in apidef.UseCD.elements['prefix'].tolist() %}
+
+JNIEXPORT jint JNICALL Java_com_gams_api_{{ apidef.JavaCall }}_CreateDD(JNIEnv *env, jobject obj, jstring dirName, jobjectArray msg)
+{
+   int rc_CreateDD;
+   jfieldID fid;
+   u64_t p{{ apidef.Prefix }};
+   char *local_dirName;
+   jstring local_msg;
+   char buffer_msg[256];
+   jclass cls = (*env)->GetObjectClass(env, obj);
+   buffer_msg[0] = '\0';
+   fid = (*env)->GetFieldID(env, cls, "{{ apidef.Prefix }}Ptr", "J");
+   if (fid == NULL) return 0;
+   p{{ apidef.Prefix }}.i = (*env)->GetLongField(env, obj, fid);
+   local_dirName = (char *) (*env)->GetStringUTFChars(env, dirName, NULL);
+   rc_CreateDD = {{ apidef.Prefix }}CreateDD(({{ apidef.Prefix }}Handle_t *)&p{{ apidef.Prefix }}.p, local_dirName, buffer_msg, sizeof(buffer_msg));
+   (*env)->ReleaseStringUTFChars(env, dirName, local_dirName);
+   local_msg = (*env)->NewStringUTF(env, buffer_msg);
+   (*env)->SetObjectArrayElement(env, msg, 0, local_msg);
+   (*env)->SetLongField(env, obj, fid, p{{ apidef.Prefix }}.i);
+   return rc_CreateDD;
+}
+
+{%- endif %}
+
+JNIEXPORT jint JNICALL Java_com_gams_api_{{ apidef.JavaCall }}_CreateL(JNIEnv *env, jobject obj, jstring libName, jobjectArray msg)
+{
+   int rc_CreateL;
+   jfieldID fid;
+   u64_t p{{ apidef.Prefix }};
+   char *local_libName;
+   jstring local_msg;
+   char buffer_msg[256];
+   jclass cls = (*env)->GetObjectClass(env, obj);
+   buffer_msg[0] = '\0';
+   fid = (*env)->GetFieldID(env, cls, "{{ apidef.Prefix }}Ptr", "J");
+   if (fid == NULL) return 0;
+   p{{ apidef.Prefix }}.i = (*env)->GetLongField(env, obj, fid);
+   local_libName = (char *) (*env)->GetStringUTFChars(env, libName, NULL);
+   rc_CreateL = {{ apidef.Prefix }}CreateL(({{ apidef.Prefix }}Handle_t *)&p{{ apidef.Prefix }}.p, local_libName, buffer_msg, sizeof(buffer_msg));
+   (*env)->ReleaseStringUTFChars(env, libName, local_libName);
+   local_msg = (*env)->NewStringUTF(env, buffer_msg);
+   (*env)->SetObjectArrayElement(env, msg, 0, local_msg);
+   (*env)->SetLongField(env, obj, fid, p{{ apidef.Prefix }}.i);
+   return rc_CreateL;
+}
+
+JNIEXPORT jint JNICALL Java_com_gams_api_{{ apidef.JavaCall }}_Free(JNIEnv *env, jobject obj)
+{
+   int rc_Free;
+   jfieldID fid;
+   u64_t p{{ apidef.Prefix }};
+   jclass cls = (*env)->GetObjectClass(env, obj);
+   fid = (*env)->GetFieldID(env, cls, "{{ apidef.Prefix }}Ptr", "J");
+   if (fid == NULL) return 0;
+   p{{ apidef.Prefix }}.i = (*env)->GetLongField(env, obj, fid);
+   rc_Free = {{ apidef.Prefix }}Free(({{ apidef.Prefix }}Handle_t *)&p{{ apidef.Prefix }}.p);
+   (*env)->SetLongField(env, obj, fid, p{{ apidef.Prefix }}.i);
+{%- for key,value in apidef.f.elements[apidef.f.elements['pos'].isin(tpp)].iterrows() if apidef.f.elements.shape[0] > 0 -%}
+   {%- if value['type']=='funcptr' %}
+     {%-if apidef.FuncMap.elements.shape[0] > 0 -%}
+       {%- for fmkey,fmvalue in apidef.FuncMap.elements[apidef.FuncMap.elements['def']==value['name']].iterrows()
+           if apidef.FuncMap.elements.shape[0] > 0 and fmvalue['fpos']==value['pos'] -%}
+            {%- for tkey,tvalue in apidef.tPtrFunc.elements[apidef.tPtrFunc.elements['name']==fmvalue['name']].iterrows()
+                if apidef.tPtrFunc.elements.shape[0] > 0 -%}
+                {%- for pfkey,pfvalue in apidef.PtrF.elements.iterrows() if pfvalue['name']==fmvalue['name'] -%}
+                   {%- if pfvalue['type'] in datadef.taar.elements['ta'].tolist() and
+                          pfvalue['type'] not in ['csi','osi'] %}
+   (*env)->DeleteGlobalRef(env, {{fmvalue['def'] }}_{{ pfvalue['arg'] }}); {{fmvalue['def'] }}_{{ pfvalue['arg'] }} = NULL;
+                   {%- endif -%}
+               {%- endfor -%}
+           {%- endfor -%}
+       {%- endfor -%}
+     {%- endif -%}
+   {%- endif -%}
+{% endfor -%} {#- f #}
+   return rc_Free;
+}
+
+{% for key,value in apidef.f.elements[apidef.f.elements['pos'].isin(tpp)].iterrows() if apidef.f.elements.shape[0] > 0 -%}
+   {%- if value['type']=='funcptr' and apidef.FuncMap.elements.shape[0] > 0 %}
+       {%- set fm = apidef.FuncMap.elements[apidef.FuncMap.elements['def']==value['name']] -%}
+       {%- for fmkey,fmvalue in fm[fm['fpos']==value['pos']].iterrows() if fm.shape[0] > 0 %}
+            {%- for tkey,tvalue in apidef.tPtrFunc.elements.iterrows() if tvalue['name']==fmvalue['name'] %}
+
+static {{ CType(tvalue['type']) }} {{ CCall(tvalue['type']) }} {{ apidef.Prefix.upper() }}_CALLCONV dll_{{ value['name'] }}_{{ value['arg'] }}(
+               {%- set counter = namespace(pos = 0) -%}
+               {%- for pfkey,pfvalue in apidef.PtrF.elements.iterrows() if pfvalue['name']==tvalue['name'] %}
+                  {%- if pfvalue['apos'] in tpp -%}
+                     {%- if counter.pos > 0 -%} , {% endif -%}
+                     {%- if pfvalue['type'] != 'csi' -%} {{ CTMod(pfvalue['type']) }}{{ CType(pfvalue['type']) }} {{ CCall(pfvalue['type']) }}{{ pfvalue['arg'] }}{{ CArraySuf(pfvalue['type']) }}
+                     {%- else                        -%} {{ CTMod(pfvalue['type']) }}{{ CType(pfvalue['type']) }} *{{ pfvalue['arg'] }}
+                     {%- endif -%}
+                     {%- if pfvalue['type'] == 'xss' -%} 
+, {{ CTMod('int') }}{{ CType('int') }} {{ CCall('int') }}{{ pfvalue['arg'] }}_i{{ CArraySuf('int') }}
+                     {%- endif -%}
+                     {%- set counter.pos = counter.pos + 1 -%}
+                  {%- endif -%}
+               {%- endfor -%} {#- PtrF -#}
+)
+{
+               {%- if tvalue['type'] != 'void' %}
+   return {{ CDefVal(tvalue['type']) }};
+               {%- else                        %}
+   JNIEnv *env;
+   jclass cls;
+   jmethodID mid;
+                   {%- for pfkey,pfvalue in apidef.PtrF.elements.iterrows() 
+                       if pfvalue['name']==fmvalue['name'] and pfvalue['apos'] in tpp %}
+                      {%- if pfvalue['type'] in ['css','oint','vint','cpc','oint64','vint64','vd','vc','vptr','oss','xss','pc'] -%} {#-  or 'cSI','oSI' #}
+   {{ jniType(pfvalue['type']) }} local_{{ pfvalue['arg'] }};
+                      {%- elif pfvalue['type'] == 'ptr'         %}
+   u64_t local_{{ pfvalue['arg'] }};
+                      {%- elif pfvalue['type'] in ['csi','osi'] %}
+/* !!!CANNOT HANDLE {{ pfvalue['type'] }} IN CALLBACK FUNCTIONS!!! */
+                      {%- endif -%}
+                      {%- if pfvalue['type'] == 'css'         %}
+   char buffer_{{ pfvalue['arg'] }}[256];
+                      {%- endif -%}
+                   {%- endfor -%} {#- PtrF -#}
+{#-
+   char* origlocale;
+   origlocale = setlocale(LC_ALL, NULL);
+   if( origlocale[0] != 'C' || origlocale[1] != '\0' )
+      setlocale(LC_ALL, "C");
+   else
+      origlocale = NULL;
+#}
+   (*Cached_JVM)->AttachCurrentThread(Cached_JVM, (void**)&env, NULL);
+   if (methodname_{{ value['name'] }}_{{ value['arg'] }}==NULL)
+      printerr("Callback function name is nil","{{ value['arg'] }}");
+   if (classname_{{ value['name'] }}_{{ value['arg'] }}==NULL)
+      printerr("Callback class name is nil","{{ value['arg'] }}");
+   cls = (*env)->FindClass(env,classname_{{ value['name'] }}_{{ value['arg'] }});
+   if (cls==NULL)
+      printerr("Class not found",classname_{{ value['name'] }}_{{ value['arg'] }});
+   mid = (*env)->GetStaticMethodID(env, cls, methodname_{{ value['name'] }}_{{ value['arg'] }}, sig_{{ value['name'] }}_{{ value['arg'] }});
+   if (mid==NULL)
+      printerr("Static method not found",methodname_{{ value['name'] }}_{{ value['arg'] }});
+   if (ReturnName == 1) {
+      sprintf(ClassDotMethodName,"%s.%s",classname_{{ value['name'] }}_{{ value['arg'] }},methodname_{{ value['name'] }}_{{ value['arg'] }});
+                   {%- if tvalue['type']=='void' %}
+      return; }
+                   {%- endif -%}
+                   {%- for pfkey,pfvalue in apidef.PtrF.elements.iterrows() 
+                       if pfvalue['name']==fmvalue['name'] and pfvalue['apos'] in tpp %}
+                      {%- if pfvalue['type'] =='css'                %}
+   strncpy(buffer_{{ pfvalue['arg'] }}, {{ pfvalue['arg'] }}+1, {{ pfvalue['arg'] }}[0]); buffer_{{ pfvalue['arg'] }}[(int){{ pfvalue['arg'] }}[0]]='\0';
+   local_{{ pfvalue['arg'] }} = (*env)->NewStringUTF(env, buffer_{{ pfvalue['arg'] }});
+                      {%- elif pfvalue['type'] =='cpc'              %}
+   local_{{ pfvalue['arg'] }} = (*env)->NewStringUTF(env, {{ pfvalue['arg'] }});
+                      {%- endif -%}
+                      {%- if pfvalue['type'] in datadef.taar.elements['ta'].tolist() and pfvalue['type'] not in ['csi','osi']  %}
+   if(NULL == {{ value['name'] }}_{{ pfvalue['arg'] }}) {
+                      {%- endif -%}
+                      {%- if pfvalue['type'] in ['plia','cplia']  %}
+      {{ jniType(pfvalue['type']) }} local_{{ pfvalue['arg'] }} = (*env)->NewIntArray(env, {{ pArrLen(pfvalue['name'],pfvalue['arg']) }});
+                      {%- elif pfvalue['type'] in ['vii','cii']   %}
+      {{ jniType(pfvalue['type']) }} local_{{ pfvalue['arg'] }} = (*env)->NewIntArray(env, GMS_MAX_INDEX_DIM);
+                      {%- elif pfvalue['type'] in ['pda','cpda']  %}
+      {{ jniType(pfvalue['type']) }} local_{{ pfvalue['arg'] }} = (*env)->NewDoubleArray(env, {{ pArrLen(pfvalue['name'],pfvalue['arg']) }});
+                      {%- elif pfvalue['type'] in ['vrv','crv']   %}
+      {{ jniType(pfvalue['type']) }} local_{{ pfvalue['arg'] }} = (*env)->NewDoubleArray(env, GMS_VAL_MAX);
+                      {%- elif pfvalue['type'] in ['vsva','csva'] %}
+      {{ jniType(pfvalue['type']) }} local_{{ pfvalue['arg'] }} = (*env)->NewDoubleArray(env, GMS_SVIDX_MAX);
+                      {%- endif -%}
+                      {%- if pfvalue['type'] in ['plia','cplia','vii','cii']  %}
+      if (local_{{ pfvalue['arg'] }} == NULL) printerr("Out of memory", "JNI:NewIntArray");
+                      {%- endif -%}
+                      {%- if pfvalue['type'] in ['pda','cpda','vrv','crv','vsva','csva'] %}
+      if (local_{{ pfvalue['arg'] }} == NULL) printerr("Out of memory", "JNI:NewDoubleArray");
+                      {%- endif -%}
+                      {%- if pfvalue['type'] in datadef.taar.elements['ta'].tolist() and pfvalue['type'] not in ['csi','osi']  %}
+      {{ value['name'] }}_{{ pfvalue['arg'] }} = (*env)->NewGlobalRef(env, local_{{ pfvalue['arg'] }});
+      (*env)->DeleteLocalRef(env, local_{{ pfvalue['arg'] }});
+      if ({{ value['name'] }}_{{ pfvalue['arg'] }} == NULL) printerr("Out of memory", "Global reference");
+   }
+                      {%- endif -%}
+                      {%- if pfvalue['type'] in ['plia','cplia']  %}
+   (*env)->SetIntArrayRegion(env, {{ value['name'] }}_{{ pfvalue['arg'] }}, 0, {{ pArrLen(pfvalue['name'],pfvalue['arg']) }}, {{ pfvalue['arg'] }});
+                      {%- elif pfvalue['type'] in ['vii','cii']   %}
+   (*env)->SetIntArrayRegion(env, {{ value['name'] }}_{{ pfvalue['arg'] }}, 0, GMS_MAX_INDEX_DIM, {{ pfvalue['arg'] }});
+                      {%- elif pfvalue['type'] in ['pda','cpda']  %}
+   (*env)->SetDoubleArrayRegion(env, {{ value['name'] }}_{{ pfvalue['arg'] }}, 0, {{ pArrLen(pfvalue['name'],pfvalue['arg']) }}, {{ pfvalue['arg'] }});
+                      {%- elif pfvalue['type'] in ['vrv','crv']   %}
+   (*env)->SetDoubleArrayRegion(env, {{ value['name'] }}_{{ pfvalue['arg'] }}, 0, GMS_VAL_MAX, {{ pfvalue['arg'] }});
+                      {%- elif pfvalue['type'] in ['vsva','csva'] %}
+   (*env)->SetDoubleArrayRegion(env, {{ value['name'] }}_{{ pfvalue['arg'] }}, 0, GMS_SVIDX_MAX, {{ pfvalue['arg'] }});
+                      {%- endif -%}
+                      {%- if pfvalue['type'] == 'ptr'           %}
+   local_{{ pfvalue['arg'] }}.p = {{ pfvalue['arg'] }};
+                      {%- endif -%}
+                   {%- endfor -%} {#- PtrF -#}
+                   {%- if tvalue['type']=='void' %}
+   (*env)->CallStaticVoidMethod(env, cls, mid
+                       {%- for pfkey,pfvalue in apidef.PtrF.elements.iterrows() 
+                           if pfvalue['name']==fmvalue['name'] and pfvalue['apos'] in tpp -%}
+,
+                           {%- if pfvalue['type'] in datadef.taar.elements['ta'].tolist() and
+                                  pfvalue['type'] not in ['csi','osi']                        %} {{ value['name'] }}_
+                           {%- endif -%}
+                           {%- if pfvalue['type'] in ['css','oint','vint','cpc','oint64','vint64','pda','vc',
+                                                      'vptr','oss','xss','pc','ptr'] %} local_       {#-'cSI','oSI' -#}
+                           {%- endif -%}
+                           {%- if pfvalue['type'] in ['csi','osi'] -%} ({{ jniType(pfvalue['type']) }}) {%- endif -%}
+{{ pfvalue['arg'] }}
+                           {%- if pfvalue['type'] == 'ptr'         -%} .i  {%- endif -%}
+                       {%- endfor -%} {#- PtrF -#}
+);
+                   {%- endif -%}
+               {%- endif -%}
+{#
+CallStaticVoidMethod void
+CallStaticObjectMethod jobject
+CallStaticBooleanMethod jboolean
+CallStaticByteMethod jbyte
+CallStaticCharMethod jchar
+CallStaticShortMethod jshort
+CallStaticIntMethod jint
+CallStaticLongMethod jlong
+CallStaticFloatMethod jfloat
+CallStaticDoubleMethod jdouble
+#}
+}
+           {%- endfor -%} {#- tPtrFunc -#}
+       {%- endfor -%} {#- FuncMap -#}
+   {%- endif -%}
+{% endfor -%} {#- f #}
+
+{%- if apidef.fpf.elements.shape[0] > 0 and apidef.pn.elements.shape[0] > 0  -%}
+{%- for key,value in apidef.fpf.elements[apidef.fpf.elements['def'].isin(enprop)].iterrows() %}
+    {%- for fmkey,fmvalue in apidef.FuncMap.elements[apidef.FuncMap.elements['def']==value['def']]
+        if apidef.FuncMap.elements.shape[0] > 0 %} 
+        {%- for tkey,tvalue in apidef.tPtrFunc.elements.iterrows() if tvalue['name']==fmvalue['name'] %}
+
+static {{ CType(tvalue['type']) }} {{ CCall(tvalue['type']) }} {{ apidef.Prefix.upper()  }}_CALLCONV dll_{{ fmvalue['def'] }}_x(
+            {%- set counter = namespace(argpos=0)                                   -%}
+            {%- for pfkey,pfvalue in apidef.PtrF.elements.iterrows() 
+                if pfvalue['name']==fmvalue['name'] and pfvalue['apos'] in tpp %}
+                {%- if counter.argpos > 0 -%} , {% endif -%}
+{{ CTMod(pfvalue['type']) }}{{ CType(pfvalue['type']) }} {{ CCall(pfvalue['type']) }}{{ pfvalue['arg'] }}
+                {%- if pfvalue['type'] == 'xss' -%}
+{{ CTMod('int') }}{{ CType('int') }} {{ CCall('int') }}{{ pfvalue['arg'] }}_i
+                {%- endif -%}
+                {%- set counter.argpos = counter.argpos + 1 -%}
+            {% endfor -%} {#- PtrF #}
+   JNIEnv *env;
+   jclass cls;
+   jmethodID mid;
+            {%- for pfkey,pfvalue in apidef.PtrF.elements.iterrows() if pfvalue['name']==value['name']
+                if pfvalue['apos'] in tpp -%}
+                {%- if pfvalue['type'] in ['css','oint','vint','vii','plia','cpc','oint64','vint64',
+                                           'cii','cplia','vrv', 'pda', 'vd',  'od',
+                                           'crv','cpda','vsva','csva','vc',
+                                           'vptr','oss','xss','pc'                           ] %}
+   {{ jniType(pfvalue['type']) }} local_{{ pfvalue['arg'] }};
+                {%- elif pfvalue['type'] in ['csi','osi']                                      %}
+/* !!!CANNOT HANDLE {{ pfvalue['type'] }} IN CALLBACK FUNCTIONS!!! */
+                {%- elif pfvalue['type'] == 'css'                                              %}
+   char buffer_{{ pfvalue['arg'] }}[256];
+                {%- endif -%}
+            {%- endfor -%} {#- PtrF -#}
+{#-
+   char* origlocale;
+   origlocale = setlocale(LC_ALL, NULL);
+   if( origlocale[0] != 'C' || origlocale[1] != '\0' )
+      setlocale(LC_ALL, "C");
+   else
+      origlocale = NULL;
+#}
+   (*Cached_JVM)->AttachCurrentThread(Cached_JVM, (void**)&env, NULL);
+   if (methodname_{{ fmvalue['def'] }}_prop==NULL)
+      printerr("Callback function name is nil","{{ fmvalue['def'] }}_prop");
+   if (classname_{{ fmvalue['def'] }}_prop==NULL)
+      printerr("Callback class name is nil","{{ fmvalue['def'] }}_prop");
+   cls = (*env)->FindClass(env,classname_{{ fmvalue['def'] }}_prop);
+   if (cls==NULL)
+      printerr("Class not found",classname_{{ fmvalue['def'] }}_prop);
+   mid = (*env)->GetStaticMethodID(env, cls, methodname_{{ fmvalue['def'] }}_prop, sig_{{ fmvalue['def'] }}_prop);
+   if (mid==NULL)
+      printerr("Static method not found",methodname_{{ fmvalue['def'] }}_prop);
+   if (ReturnName == 1) {
+      sprintf(ClassDotMethodName,"%s.%s",classname_{{ fmvalue['def'] }}_prop,methodname_{{ fmvalue['def'] }}_prop);
+{#-
+   if( origlocale != NULL )
+      setlocale(LC_ALL, origlocale);
+#}
+            {% if tvalue['type']  == 'void' %}
+      return; }
+            {% else                         %}
+      return ({{ CType(tvalue['type']) }} {{ CCall(tvalue['type']) }}) 0; }
+            {%- endif -%}
+            {%- for pfkey,pfvalue in apidef.PtrF.elements.iterrows() if pfvalue['name']==value['name']
+                if pfvalue['apos'] in tpp -%}
+                {%- if pfvalue['type'] == 'css'   %}
+   strncpy(buffer_{{ pfvalue['arg'] }}, {{ pfvalue['arg'] }}+1, {{ pfvalue['arg'] }}[0]); buffer_{{ pfvalue['arg'] }}[(int){{ pfvalue['arg'] }}[0]]='\0';
+   local_{{ pfvalue['arg'] }} = (*env)->NewStringUTF(env, buffer_{{ pfvalue['arg'] }});
+                {%- elif pfvalue['type'] == 'cpc' %}
+   local_{{ pfvalue['arg'] }} = (*env)->NewStringUTF(env, {{ pfvalue['arg'] }});
+                {%- endif -%}
+            {%- endfor -%} {#- PtrF -#}
+            {% if tvalue['type']  == 'void' %}
+   (*env)->CallStaticVoidMethod(env, cls, mid
+                {%- for pfkey,pfvalue in apidef.PtrF.elements.iterrows() if pfvalue['name']==value['name']
+                    if pfvalue['apos'] in tpp -%} ,
+                    {%- if pfvalue['type'] in ['css','oint','vint','vii','plia','cpc','oint64','vint64',
+                                               'cii','cplia','vrv', 'pda', 'vd',  'od',
+                                               'crv','cpda','vsva','csva','vc',
+                                               'vptr','oss','xss','pc'                           ] %} local_
+                    {%- elif pfvalue['type'] in ['csi','osi']                                      %} {{ jniType(pfvalue['type']) }}
+                    {%- endif -%}
+                {%- endfor -%} {#- PtrF -#}
+);
+            {%- endif %}
+}
+        {%- endfor -%} {#- tPtrFunc #}
+   {% endfor -%} {#- FuncMap #}
+{% endfor -%} {#- f #}
+{%- endif %}
+
+{%- for key,value in apidef.tfunc.elements.iterrows() %}
+
+JNIEXPORT
+   {%- if value['type'] not in ['pc','oss','funcptr'] %} {{ jniType(value['type']) }}{{ jniCall(value['type']) }}
+   {%- else                                           %} jstring
+   {%- endif %} JNICALL Java_com_gams_api_{{ apidef.JavaCall }}_{{ nameWithoutPrefix(apidef.Prefix,value['name']) }}
+   {%- if apidef.internalCS.elements.shape[0] > 0 and
+          value['name'] in apidef.internalCS.elements['name'].tolist() -%} (JNIEnv *env, jclass cls
+   {%- else                                                            -%} (JNIEnv *env, jobject obj
+   {%- endif %}
+   {%- set f = apidef.f.elements[apidef.f.elements['name']==value['name']] -%}
+   {%- set counter = namespace(argpos=1)                                   -%}
+   {%- for fkey,fvalue in f[f['pos'].isin(tpp)].iterrows() if f.shape[0] > 0 -%}
+       {%- if fvalue['type'] == 'funcptr' -%}, jstring
+       {%- else                           -%}, {{ jniType(fvalue['type']) }}
+       {%- endif %} {{ fvalue['arg'] }}
+   {%- endfor %}
+   {%- if value['type'] == 'oss' -%} , jobjectArray sst_result
+   {%- endif -%}
+)
+{
+   {%- if value['type'] not in ['void','funcptr','ptr'] %}
+   {{ CType(value['type']) }} {{ CCall(value['type']) }}rc_{{ value['name'] }};
+   {%- elif value['type'] == 'ptr'                      %}
+   u64_t rc_{{ value['name'] }};
+   {%- endif -%}
+   {%- if apidef.FuncMap.elements.shape[0] > 0 -%}
+      {%- for fmkey,fmvalue in apidef.FuncMap.elements[apidef.FuncMap.elements['def']==value['name']].iterrows()
+          if value['type'] == 'funcptr' %}
+   {{ fmvalue['name'] }}_t rc_{{ value['name'] }};
+      {%- endfor -%} {#- FuncMap -#}
+   {%- endif -%} {#- FuncMap #}
+   {%- if apidef.internalCS.elements.shape[0] <= 0 or
+          value['name'] not in apidef.internalCS.elements['name'].tolist() %}
+   jfieldID fid;
+   u64_t p{{ apidef.Prefix }};
+   jclass cls = (*env)->GetObjectClass(env, obj);
+   {%- endif -%}
+   {%- if value['type'] == 'oss' %}
+   jstring local_sst;
+   char buffer_sst[256];
+   {%- endif -%}
+   {%- for fkey,fvalue in f[f['pos'].isin(tpp)].iterrows() if f.shape[0] > 0 -%}
+       {%- if fvalue['type'] in ['css','vint','cpc','vd','oint64','vint64','vc']                               %}
+   {{ CType(fvalue['type']) }} {{ CCall(fvalue['type']) }}local_{{ fvalue['arg'] }}{{ CArraySuf(fvalue['type']) }};
+       {%- elif fvalue['type'] in ['oint','od']                                                       %}
+   {{ CType(fvalue['type']) }} local_{{ fvalue['arg'] }}[1];
+       {%- elif fvalue['type'] in ['vii','plia','cii','cplia','vrv','pda','crv','cpda','vsva','csva'] %}
+   {{ CType(fvalue['type']) }} {{ CCall(fvalue['type']) }}*local_{{ fvalue['arg'] }};
+       {%- elif fvalue['type'] == 'vbool'                                                             %}
+   jboolean *local_{{ fvalue['arg'] }};
+   int ib_{{ fvalue['arg'] }} = 0;
+       {%- elif fvalue['type'] == 'ptr'                                                               %}
+   u64_t local_{{ fvalue['arg'] }};
+       {%- elif fvalue['type'] == 'vptr'                                                              %}
+   jlong* local_{{ fvalue['arg'] }};
+   void** localCopy_{{ fvalue['arg'] }};
+       {%- elif fvalue['type'] in ['oss','xss','pc']                                                  %}
+   jstring local_{{ fvalue['arg'] }};
+   char buffer_{{ fvalue['arg'] }}[256];
+       {%- elif fvalue['type'] in ['csi','osi']                                                       %}
+   int i_{{ fvalue['arg'] }}, sidim_{{ fvalue['arg'] }};
+   stringUEL local_{{ fvalue['arg'] }}[GLOBAL_MAX_INDEX_DIM];
+   char *ptr_{{ fvalue['arg'] }}[GLOBAL_MAX_INDEX_DIM];
+       {%- elif fvalue['type'] == 'funcptr'                                                           %}
+   char *local_{{ fvalue['arg'] }};
+   int   have_{{ fvalue['arg'] }} = 0;
+       {%- endif %}
+       {%- if apidef.FuncMap.elements.shape[0] > 0 -%}
+          {%- set fm = apidef.FuncMap.elements[apidef.FuncMap.elements['def']==value['name']] -%}
+          {%- for fmkey,fmvalue in fm[fm['fpos']==fvalue['pos']].iterrows() if fm.shape[0] > 0 %}
+   {{ fmvalue['name'] }}_t ptr_{{ fvalue['arg'] }} = NULL;
+          {%- endfor -%} {#- FuncMap -#}
+       {%- endif -%}
+   {%- endfor %}
+{#-   char* origlocale; #}
+   {%- if apidef.internalCS.elements.shape[0] <= 0 or  
+          value['name'] not in apidef.internalCS.elements['name'].tolist() %}
+   fid = (*env)->GetFieldID(env, cls, "{{ apidef.Prefix }}Ptr", "J");
+   if (fid == NULL) return 
+       {%- if value['type'] == 'ptr' %} (jlong)
+       {%- endif %} {{ CDefVal(value['type']) }};
+   p{{ apidef.Prefix }}.i = (*env)->GetLongField(env, obj, fid);
+   {%- endif %}
+{#-
+   origlocale = setlocale(LC_ALL, NULL);
+   if( origlocale[0] != 'C' || origlocale[1] != '\0' )
+      setlocale(LC_ALL, "C");
+   else
+      origlocale = NULL;
+-#}
+   {%- for fkey,fvalue in f[f['pos'].isin(tpp)].iterrows() if f.shape[0] > 0 
+       if fvalue['type'] not in ['csi','osi'] -%}
+       {%- if fvalue['type'] in ['oss','xss','pc']                    %}
+   buffer_{{ fvalue['arg'] }}[0] = '\0';
+       {%- elif fvalue['type'] in ['css','cpc']                       %}
+   local_{{ fvalue['arg'] }} = (char *)(*env)->GetStringUTFChars(env, {{ fvalue['arg'] }}, NULL);
+       {%- elif fvalue['type'] == 'funcptr'                           %}
+   if({{ fvalue['arg'] }} != NULL)
+   {
+     local_{{ fvalue['arg'] }} = (char *)(*env)->GetStringUTFChars(env, {{ fvalue['arg'] }}, NULL);
+     if(strcmp(local_{{ fvalue['arg'] }},""))
+       have_{{ fvalue['arg'] }}=1;
+   }
+       {%- endif %}
+       {%- if fvalue['type'] in ['vint','vii','plia','cii','cplia']   %}
+   local_{{ fvalue['arg'] }} = (*env)->GetIntArrayElements(env, {{ fvalue['arg'] }}, NULL);
+       {%- elif fvalue['type'] in ['oint64','vint64']                %}
+   local_{{ fvalue['arg'] }} = (*env)->GetLongArrayElements(env, {{ fvalue['arg'] }}, NULL);
+       {%- elif fvalue['type'] == 'ptr'                               %}
+   local_{{ fvalue['arg'] }}.i = {{ fvalue['arg'] }};
+       {%- elif fvalue['type'] == 'vptr'                              %}
+   local_{{ fvalue['arg'] }} = (*env)->GetLongArrayElements(env, {{ fvalue['arg'] }}, NULL);
+   if( sizeof(jlong) != sizeof(void*) ) {
+     jsize localCount;
+     u64_t blab;
+     localCopy_{{ fvalue['arg'] }} = (void**)malloc(sizeof(void*) * (*env)->GetArrayLength(env, {{ fvalue['arg'] }}));
+     for( localCount = 0; localCount < (*env)->GetArrayLength(env, {{ fvalue['arg'] }}); ++localCount ) {
+       blab.i = local_{{ fvalue['arg'] }}[localCount];
+       localCopy_{{ fvalue['arg'] }}[localCount] = blab.p;
+       }
+   } else
+     localCopy_{{ fvalue['arg'] }} = (void**)local_{{ fvalue['arg'] }};
+       {%- elif fvalue['type'] == 'vbool'                             %}
+   local_{{ fvalue['arg'] }} = (*env)->GetBooleanArrayElements(env, {{ fvalue['arg'] }}, NULL);
+   if(local_{{ fvalue['arg'] }}[0]) ib_{{ fvalue['arg'] }} = 1;
+       {%- elif fvalue['type'] in ['vrv','pda','crv','vd','cpda','vsva','csva'] %}
+   local_{{ fvalue['arg'] }} = (*env)->GetDoubleArrayElements(env, {{ fvalue['arg'] }}, NULL);
+       {%- elif fvalue['type'] == 'vc'                                %}
+   local_{{ fvalue['arg'] }} = (char *)(*env)->GetByteArrayElements(env, {{ fvalue['arg'] }}, NULL);
+       {%- endif %}
+       {%- if fvalue['type'] == 'funcptr'  %}
+   if(have_{{ fvalue['arg'] }})
+   {
+     local_{{ fvalue['arg'] }} = (char *)(*env)->GetStringUTFChars(env, {{ fvalue['arg'] }}, NULL);
+     methodname_{{ value['name'] }}_{{ fvalue['arg'] }} = getMethodName_(local_{{ fvalue['arg'] }});
+     if(methodname_{{ value['name'] }}_{{ fvalue['arg'] }} == NULL) printerr("Method name incomplete", local_{{ fvalue['arg'] }});
+     classname_{{ value['name'] }}_{{ fvalue['arg'] }} = getClassName_(local_{{ fvalue['arg'] }});
+     if(classname_{{ value['name'] }}_{{ fvalue['arg'] }} == NULL) printerr("Class name incomplete", local_{{ fvalue['arg'] }});
+     sig_{{ value['name'] }}_{{ fvalue['arg'] }} = "(
+          {%-if apidef.FuncMap.elements.shape[0] > 0 -%}
+            {%- set fm = apidef.FuncMap.elements[apidef.FuncMap.elements['def']==value['name']] %}
+            {%- for fmkey,fmvalue in fm[fm['fpos']==fvalue['pos']].iterrows() if fm.shape[0] > 0 -%}
+               {%- for pfkey,pfvalue in apidef.PtrF.elements[apidef.PtrF.elements['name']==fmvalue['name']].iterrows() 
+                   if apidef.PtrF.elements.shape[0] > 0 and pfvalue['apos'] in tpp -%}
+ {{ jniSig(pfvalue['type']) }}
+                {%- endfor -%} {#- PtrF -#}
+)
+               {%- for tkey,tvalue in apidef.tPtrFunc.elements[apidef.tPtrFunc.elements['name']==fmvalue['name']].iterrows() 
+                       if apidef.tPtrFunc.elements.shape[0] > 0 -%}
+{{ jniSig(tvalue['type']) }}";
+               {%- endfor -%} {#- tPtrFunc -#}
+           {%- endfor -%} {#- FuncMap -#}
+         {%- endif %}
+     ptr_{{ fvalue['arg'] }}=dll_{{ value['name'] }}_{{ fvalue['arg'] }};
+   }
+
+       {%- endif %}
+   {%- endfor -%} {#- f #}
+   {#- for gmd specials we need vint before this -#}
+   {%- for fkey,fvalue in f[f['pos'].isin(tpp)].iterrows() if f.shape[0] > 0 and fvalue['type'] in ['csi','osi'] -%}
+       {%- if MaxDimStyle == ''       %}
+   sidim_{{ fvalue['arg'] }} = GLOBAL_MAX_INDEX_DIM;
+       {%- elif MaxDimStyle == 'gdx' -%}
+           {%- if apidef.callSymbolDim.elements.shape[0] > 0 and 
+                  value['name'] in apidef.callSymbolDim.elements['name'].tolist() %}
+   sidim_{{ fvalue['arg'] }} = gdxSymbolDim(({{ apidef.Prefix }}Handle_t)p{{ apidef.Prefix }}.p, SyNr);
+           {%- else                          %}
+   sidim_{{ fvalue['arg'] }} = gdxCurrentDim(({{ apidef.Prefix }}Handle_t)p{{ apidef.Prefix }}.p);
+           {%- endif -%}
+       {%- elif MaxDimStyle == 'gmd' -%}
+           {% if apidef.useADim.elements.shape[0] > 0 and 
+               value['name'] in  apidef.useADim.elements['name'].tolist() -%}
+               {% if apidef.fstiV.elements.shape[0] > 0 and 
+                     value['name'] in  apidef.fstiV.elements['name'].tolist() %}
+   sidim_{{ fvalue['arg'] }} = *local_aDim;
+               {%- else                                                       %}
+   sidim_{{ fvalue['arg'] }} = aDim;
+               {%- endif -%}
+           {%- else                                                        %}
+   if(!gmdSymbolDim((gmdHandle_t)pgmd.p, local_symPtr.p, &sidim_{{ fvalue['arg'] }})) return 0;
+           {%- endif -%}
+       {%- endif %}
+   for(i_{{ fvalue['arg'] }}=0;i_{{ fvalue['arg'] }}<sidim_{{ fvalue['arg'] }};++i_{{ fvalue['arg'] }}) {
+       {%- if fvalue['type'] == 'csi'  %}
+      jstring js_;
+      char *str_;
+       {%- endif %}
+      ptr_{{ fvalue['arg'] }}[i_{{ fvalue['arg'] }}] = local_{{ fvalue['arg'] }}[i_{{ fvalue['arg'] }}];
+       {%- if fvalue['type'] == 'csi'  %}
+      js_ = (*env)->GetObjectArrayElement(env, {{ fvalue['arg'] }}, i_{{ fvalue['arg'] }});
+      if (js_==NULL)
+          js_ = (*env)->NewStringUTF(env, "");
+      str_ = (char*) (*env)->GetStringUTFChars(env, js_, NULL);
+      strncpy(local_{{ fvalue['arg'] }}[i_{{ fvalue['arg'] }}], str_, GLOBAL_UEL_IDENT_SIZE-1);
+      local_{{ fvalue['arg'] }}[i_{{ fvalue['arg'] }}][GLOBAL_UEL_IDENT_SIZE-1] = '\0';
+      (*env)->ReleaseStringUTFChars(env, js_, str_);
+       {%- endif %}
+   }
+   {%- endfor -%} {#- f #}
+   {%- if value['type'] == 'oss' %}
+   buffer_sst[0] = '\0';
+   {%- endif -%}
+   {%- if value['type'] != 'void' %}
+   rc_{{ value['name'] }}
+       {%- if value['type'] == 'ptr' -%} .p {%- endif -%}
+   {%- else %}
+   {# -#}
+   {%- endif -%}
+   {%- if value['type'] != 'void' %} = {% endif -%}
+   {%- if apidef.internalCS.elements.shape[0] > 0 and
+          value['name'] in apidef.internalCS.elements['name'].tolist() -%} {{ value['name'] }}(NULL
+   {%- else                                                            -%} {{ value['name'] }}(({{ apidef.Prefix }}Handle_t)p{{ apidef.Prefix }}.p
+   {%- endif -%}
+   {%- for fkey,fvalue in f[f['pos'].isin(tpp)].iterrows() if f.shape[0] > 0  -%}
+,{{  prettyWhiteSpace(1) }}
+       {%- if fvalue['type'] in ['css','oint','vint','vii','plia','cpc','oint64','vint64', 
+                                 'cii','cplia','vrv','pda','vd','od','crv','cpda',
+                                 'vsva','csva','vc'] -%} local_
+       {%- elif fvalue['type'] == 'vbool'            -%} &ib_
+       {%- elif fvalue['type'] == 'csi'              -%} (const char **)
+       {%- endif -%}
+       {%- if fvalue['type'] in ['csi','osi']        -%} ptr_
+       {%- elif fvalue['type'] in ['oss','xss','pc'] -%} buffer_
+       {%- elif fvalue['type'] == 'ptr'              -%} local_
+       {%- elif fvalue['type'] == 'vptr'             -%} localCopy_
+       {%- elif fvalue['type'] == 'funcptr'          -%} ptr_
+       {%- endif -%}
+{{ fvalue['arg'] }}
+       {%- if fvalue['type'] == 'ptr' -%} .p    {%- endif -%}
+       {%- if fvalue['type'] == 'xss' -%} , 256 {%- endif -%}
+   {%- endfor -%} {#- f #}
+   {%- if value['type'] == 'oss' -%} , buffer_sst  {%- endif -%}
+);
+   {%- if value['type'] == 'funcptr' %}
+   ReturnName = 1;
+   rc_{{ value['name'] }}(
+       {%- for fmkey,fmvalue in apidef.FuncMap.elements[apidef.FuncMap.elements['def']==value['name']].iterrows() -%}
+            {%- set counter = namespace(pos = 0) -%}
+            {%- for pfkey,pfvalue in apidef.PtrF.elements.iterrows() if pfvalue['name']==fmvalue['name'] %}
+               {%- if pfvalue['apos'] in tpp -%}
+                   {%- if counter.pos > 0 -%} , {% endif -%}
+({{ CType(pfvalue['type']) }} {{ CCall(pfvalue['type']) }}) 0
+                   {%- if pfvalue['type'] == 'xss' -%}, 0 
+                   {%- endif -%}
+                   {%- set counter.pos = counter.pos + 1 -%}
+                {%- endif -%}
+            {%- endfor -%} {#- PtrF -#}
+       {%- endfor -%} {#- FuncMap -#}
+);
+   ReturnName = 0;
+   {%- endif -%}
+   {%- for fkey,fvalue in f[f['pos'].isin(tpp)].iterrows() if f.shape[0] > 0  -%}
+       {%- if fvalue['type'] in ['css','cpc']                         %}
+   (*env)->ReleaseStringUTFChars(env, {{ fvalue['arg'] }}, local_{{ fvalue['arg'] }});
+       {%- elif fvalue['type'] == 'funcptr'                           %}
+   if({{ fvalue['arg'] }} != NULL)
+      (*env)->ReleaseStringUTFChars(env, {{ fvalue['arg'] }}, local_{{ fvalue['arg'] }});
+       {%- elif fvalue['type'] in ['vint','vii','plia','cii','cplia'] %}
+   (*env)->ReleaseIntArrayElements(env, {{ fvalue['arg'] }}, local_{{ fvalue['arg'] }}, 0);
+       {%- elif fvalue['type'] == 'oint'                              %}
+   (*env)->SetIntArrayRegion(env, {{ fvalue['arg'] }}, 0, 1, local_{{ fvalue['arg'] }});
+       {%- elif fvalue['type'] == 'od'                                %}
+   (*env)->SetDoubleArrayRegion(env, {{ fvalue['arg'] }}, 0, 1, local_{{ fvalue['arg'] }});
+       {%- elif fvalue['type'] in ['oint64','vint64']                 %}
+   (*env)->ReleaseLongArrayElements(env, {{ fvalue['arg'] }}, local_{{ fvalue['arg'] }}, 0);
+       {%- elif fvalue['type'] == 'vptr'                              %}
+   (*env)->ReleaseLongArrayElements(env, {{ fvalue['arg'] }}, local_{{ fvalue['arg'] }}, 0);
+   if( sizeof(jlong) != sizeof(void*) ) {
+     jsize localCount;
+     u64_t blub;
+     for( localCount = 0; localCount < (*env)->GetArrayLength(env, {{ fvalue['arg'] }}); ++localCount ) {
+       blub.i = 0; blub.p = localCopy_{{ fvalue['arg'] }}[localCount];
+       (*env)->SetLongArrayRegion(env, {{ fvalue['arg'] }}, localCount, 1, &blub.i);
+     }
+     free(localCopy_{{ fvalue['arg'] }});
+   }
+       {%- elif fvalue['type'] == 'vbool'                             %}
+   if(ib_{{ fvalue['arg'] }}) local_{{ fvalue['arg'] }}[0] = JNI_TRUE; else local_{{ fvalue['arg'] }}[0] = JNI_FALSE;
+   (*env)->ReleaseBooleanArrayElements(env, {{ fvalue['arg'] }}, local_{{ fvalue['arg'] }}, 0);
+       {%- elif fvalue['type'] in ['vrv','pda','crv','vd','cpda','vsva','csva'] %}
+   (*env)->ReleaseDoubleArrayElements(env, {{ fvalue['arg'] }}, local_{{ fvalue['arg'] }}, 0);
+       {%- elif fvalue['type'] == 'vc'                                %}
+   (*env)->ReleaseByteArrayElements(env, {{ fvalue['arg'] }}, (jbyte *)local_{{ fvalue['arg'] }}, 0);
+       {%- endif -%}
+       {%- if fvalue['type'] in ['oss','xss','pc'] %}
+   local_{{ fvalue['arg'] }} = (*env)->NewStringUTF(env, buffer_{{ fvalue['arg'] }});
+   (*env)->SetObjectArrayElement(env, {{ fvalue['arg'] }}, 0, local_{{ fvalue['arg'] }});
+       {%- endif -%}
+       {%- if fvalue['type'] == 'osi'  %}
+          {%- if MaxDimStyle == ''       %}
+   sidim_{{ fvalue['arg'] }} = GLOBAL_MAX_INDEX_DIM;
+          {%- elif MaxDimStyle == 'gdx' -%}
+             {%- if apidef.callSymbolDim.elements.shape[0] > 0 and 
+                    value['name'] in apidef.callSymbolDim.elements['name'].tolist()  %}
+   sidim_{{ fvalue['arg'] }} = gdxSymbolDim(({{ apidef.Prefix }}Handle_t)p{{ apidef.Prefix }}.p, SyNr);
+             {%- else                                                                %}
+   sidim_{{ fvalue['arg'] }} = gdxCurrentDim(({{ apidef.Prefix }}Handle_t)p{{ apidef.Prefix }}.p);
+             {%- endif %}
+   if(rc_{{ value['name'] }} != 0)
+          {%- elif MaxDimStyle == 'gmd' -%}
+            {% if apidef.useADim.elements.shape[0] > 0 and 
+                  value['name'] in  apidef.useADim.elements['name'].tolist() -%}
+               {% if apidef.fstiV.elements.shape[0] > 0 and 
+                     value['name'] in  apidef.fstiV.elements['name'].tolist() %}
+   sidim_{{ fvalue['arg'] }} = *local_aDim;
+               {%- else                                                       %}
+   sidim_{{ fvalue['arg'] }} = aDim;
+               {%- endif -%}
+            {%- else                                                          %}
+   if(!gmdSymbolDim((gmdHandle_t)pgmd.p, local_symPtr.p, &sidim_{{ fvalue['arg'] }})) return 0;
+            {%- endif -%}
+          {%- endif -%} {#- MaxDimStyle #}
+   for(i_{{ fvalue['arg'] }}=0;i_{{ fvalue['arg'] }}<sidim_{{ fvalue['arg'] }};++i_{{ fvalue['arg'] }}) {
+      jstring js_;
+      js_ = (*env)->NewStringUTF(env, local_{{ fvalue['arg'] }}[i_{{ fvalue['arg'] }}]);
+      (*env)->SetObjectArrayElement(env, {{ fvalue['arg'] }}, i_{{ fvalue['arg'] }}, js_);
+   }
+      {%- endif -%} {# osi #}
+   {%- endfor -%} {#- f -#}
+   {%- if value['type'] == 'oss'  %}
+   local_sst = (*env)->NewStringUTF(env, buffer_sst);
+   (*env)->SetObjectArrayElement(env, sst_result, 0, local_sst);
+   {%- endif -%}
+{#-
+   if( origlocale != NULL )
+      setlocale(LC_ALL, origlocale);
+-#}
+   {%- if value['type'] != 'void' %}
+      {%- if value['type'] not in ['pc','funcptr','oss'] %}
+   return rc_{{ value['name'] }}
+         {%- if value['type'] == 'ptr' -%} .i {%- endif -%}
+;
+      {%- elif value['type'] in ['pc','oss']             %}
+   return (*env)->NewStringUTF(env, rc_{{ value['name'] }});
+      {%- else                                           %}
+   return (*env)->NewStringUTF(env, ClassDotMethodName);
+      {%- endif -%}
+   {%- endif %}
+}
+{%- endfor -%} {#- tfunc #}
+
+{#- write properties -#}
+{% for pkey,pvalue in apidef.pn.elements.iterrows() %}
+
+JNIEXPORT 
+   {%- if pvalue['pactions']=='r' -%}
+       {%- if pvalue['type'] not in ['pc','oss','funcptr'] %} {{ jniType(pvalue['type']) }}{{ jniCall(pvalue['type']) }}
+       {%- else                                            %} jstring
+       {%- endif %} JNICALL Java_com_gams_api_{{ apidef.JavaCall }}_{{ nameWithoutPrefix(apidef.Prefix,pvalue['name']) }}(JNIEnv *env, jobject obj
+       {%- if pvalue['type'] == 'oss' -%} , jobjectArray sst_result
+       {%- endif -%} )
+{
+       {%- if pvalue['type'] in ['pc','oss'] %}
+   char *rc_{{ pvalue['name'] }};
+       {%- elif pvalue['type'] == 'ptr'      %}
+   u64_t rc_{{ pvalue['name'] }};
+       {%- endif %} 
+       {%- if apidef.FuncMap.elements.shape[0] > 0 -%}
+           {%- for fmkey,fmvalue in apidef.FuncMap.elements[apidef.FuncMap.elements['def']==pvalue['name']].iterrows() -%}
+               {%- if fmvalue['fpos']=='p' %} 
+   {{ fmvalue['name'] }}_t rc_{{ pvalue['name'] }};
+               {%- endif %}
+           {%- endfor -%} {#- FuncMap -#}
+       {%- endif %}
+   jfieldID fid;
+   u64_t p{{ apidef.Prefix }};
+{#-   char* origlocale; #}
+   jclass cls = (*env)->GetObjectClass(env, obj);
+       {%- if pvalue['type'] == 'oss' %}
+   jstring local_sst;
+   char buffer_sst[256];
+       {%- endif %}
+   fid = (*env)->GetFieldID(env, cls, "{{ apidef.Prefix }}Ptr", "J");
+   if (fid == NULL) return{{ prettyWhiteSpace(1) }}
+       {%- if pvalue['type'] == 'ptr' -%} (jlong) 
+       {%- endif -%} {{ CDefVal(pvalue['type']) }};
+{#-
+   origlocale = setlocale(LC_ALL, NULL);
+   if( origlocale[0] != 'C' || origlocale[1] != '\0' )
+      setlocale(LC_ALL, "C");
+   else
+      origlocale = NULL;
+#}
+   p{{ apidef.Prefix }}.i = (*env)->GetLongField(env, obj, fid);
+       {%- if pvalue['type'] == 'oss' %}
+   buffer_sst[0] = '\0';
+       {%- endif -%}  
+       {%- if pvalue['type'] in ['pc','oss','funcptr'] %}
+   rc_{{ pvalue['name'] }} ={{ prettyWhiteSpace(1) }}
+       {%- endif -%}  
+       {%- if pvalue['type'] == 'ptr' %}
+   rc_{{ pvalue['name'] }}.p ={{ prettyWhiteSpace(1) }}
+       {%- endif -%}  
+       {%- if pvalue['type'] not in ['pc','oss','funcptr','ptr'] %}
+   return{{ prettyWhiteSpace(1) }}
+       {%- endif -%}
+{{ pvalue['name'] }}(({{ apidef.Prefix }}Handle_t)p{{ apidef.Prefix }}.p
+       {%- if pvalue['type'] == 'oss' -%} , buffer_sst  {%- endif -%}  
+);
+       {%- if pvalue['type'] == 'funcptr' %}
+   ReturnName = 1;
+   rc_{{ pvalue['name'] }}(
+           {%- for fmkey,fmvalue in apidef.FuncMap.elements[apidef.FuncMap.elements['fpos']=='p'].iterrows()
+               if apidef.FuncMap.elements.shape[0] > 0 -%}
+               {%- set counter = namespace(argpos=0)                                   -%}
+               {%- for pfkey,pfvalue in apidef.PtrF.elements.iterrows() if pfvalue['name']==fmvalue['name'] %}
+                  {%- if pfvalue in tpp -%}
+                     {%- if counter.argpos > 0 -%} , {% endif -%}
+({{ CType(pfvalue['type']) }} {{ CCall(pfvalue['type']) }}) 0
+                     {%- if pfvalue['type'] == 'xss' -%} , 0 {%- endif -%}  
+                     {%- set counter.pos = counter.pos + 1 -%}
+                  {%- endif -%}  
+               {%- endfor -%}
+           {%- endfor -%} {#- FuncMap -#}
+);
+   ReturnName = 0;
+       {%- endif -%}
+       {%- if pvalue['type'] == 'oss' %}
+   local_sst = (*env)->NewStringUTF(env, buffer_sst);
+   (*env)->SetObjectArrayElement(env, sst_result, 0, local_sst);
+       {%- endif -%}
+{#-
+   if( origlocale != NULL )
+      setlocale(LC_ALL, origlocale);
+-#} 
+       {%- if pvalue['type'] in ['pc','oss'] %}
+   return  (*env)->NewStringUTF(env, rc_{{ pvalue['name'] }});
+       {%- endif -%}
+       {%- if pvalue['type'] == 'funcptr' %}
+   return  (*env)->NewStringUTF(env, ClassDotMethodName);
+       {%- endif -%}
+       {%- if pvalue['type'] == 'ptr' %}
+   return  rc_{{ pvalue['name'] }}.i;
+       {%- endif  %}
+}
+    {%- else                        %} void JNICALL Java_com_gams_api_{{ apidef.JavaCall }}_{{ nameWithoutPrefix(apidef.Prefix,pvalue['name']) }}Set(JNIEnv *env, jobject obj,
+       {%- if pvalue['type'] not in ['pc','oss','funcptr'] %} {{ jniType(pvalue['type']) }}{{ jniCall(pvalue['type']) }}
+       {%- else                                            %} jstring 
+       {%- endif %} x)
+{
+       {%- if pvalue['type'] in ['pc','oss','funcptr'] %}
+   char *local_x;
+       {%- endif %}
+   jfieldID fid;
+   u64_t p{{ apidef.Prefix }};
+       {%- if pvalue['type'] == 'ptr' %}
+   u64_t local_x;
+       {%- endif -%} 
+{#-   char* origlocale; #}
+   jclass cls = (*env)->GetObjectClass(env, obj);
+   fid = (*env)->GetFieldID(env, cls, "{{ apidef.Prefix }}Ptr", "J");
+   if (fid == NULL) return;
+{#-
+   origlocale = setlocale(LC_ALL, NULL);
+   if( origlocale[0] != 'C' || origlocale[1] != '\0' )
+      setlocale(LC_ALL, "C");
+   else
+      origlocale = NULL;
+#}
+   p{{ apidef.Prefix }}.i = (*env)->GetLongField(env, obj, fid);
+       {%- if pvalue['type'] in ['pc','oss','funcptr'] %}
+   local_x = (char *) (*env)->GetStringUTFChars(env, x, NULL);
+       {%- endif -%}
+       {%- if pvalue['type'] == 'funcptr' %}
+   methodname_{{ pvalue['name'] }}_prop = getMethodName_(local_x);
+   if(methodname_{{ pvalue['name'] }}_prop == NULL) printerr("Method name incomplete", local_x);
+   classname_{{ pvalue['name'] }}_prop = getClassName_(local_x);
+   if(classname_{{ pvalue['name'] }}_prop == NULL) printerr("Class name incomplete", local_x);
+   sig_{{ pvalue['name'] }}_prop = (
+           {%- for fmkey,fmvalue in apidef.FuncMap.elements[apidef.FuncMap.elements['fpos']=='p'].iterrows()
+               if apidef.FuncMap.elements.shape[0] > 0 -%}
+              {%- for pfkey,pfvalue in apidef.PtrF.elements.iterrows() if pfvalue['name']==fmvalue['name'] %}
+                 {%- if pfvalue in tpp -%} {{ jniSig(pfvalue['type']) }} {%- endif -%}  
+              {%- endfor -%}
+           {%- endfor -%} {#- FuncMap -#}
+)
+           {%- for tkey,tvalue in apidef.tPtrFunc.elements.iterrows() if tvalue['type'] in tpp -%}
+{{ jniSig(tvalue['type']) }}";
+           {%- endfor -%} {#- tPtrFunc -#}
+       {%- endif -%}
+       {%- if pvalue['type'] == 'ptr' %}
+   local_x.i = x;
+       {%- endif %}
+   {{ pvalue['name'] }}Set(({{ apidef.Prefix }}Handle_t)p{{ apidef.Prefix }}.p,{{ prettyWhiteSpace(1) }}
+       {%- if pvalue['type'] in ['pc','oss','ptr'] -%} local_                     {%- endif -%} 
+       {%- if pvalue['type'] == 'funcptr'          -%} dll_{{ pvalue['name'] }}_  {%- endif -%} 
+x
+       {%- if pvalue['type'] == 'ptr' -%} .p {%- endif -%}
+);
+       {%- if pvalue['type'] in ['pc','oss','funcptr'] %}
+   (*env)->ReleaseStringUTFChars(env, x, local_x);
+       {%- endif -%}
+{#-
+   if( origlocale != NULL )
+      setlocale(LC_ALL, origlocale);
+#}
+}
+    {%- endif -%}
+{%- endfor -%} {#- pn #}
+
+{%- endblock %}
