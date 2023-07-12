@@ -52,7 +52,8 @@ class Setup:
     def generateFile(self, templatename, subdirectory=''):
         templatefilename = templatename+'.template.j2'
         file_loader = FileSystemLoader(pathlib.Path(__file__).parent)
-        env = Environment(loader=file_loader)
+        templates_dir = os.path.join(os.path.dirname(pathlib.Path(__file__).parent), 'templates')
+        env = Environment(loader=FileSystemLoader(templates_dir))
         template = env.get_template(templatefilename)
         output = template.render(api=self.api, keys=self.data.keys, data=self.data,templatename=templatename)
         outputfilename = templatename+'.py'
