@@ -1,3 +1,6 @@
+#ifndef _GCMUTEX_
+#define _GCMUTEX_
+
 #include <stdlib.h>
 #include <string.h>
 
@@ -13,6 +16,9 @@ typedef CRITICAL_SECTION GC_mutex_t;
 typedef pthread_mutex_t  GC_mutex_t;
 #endif
 
+#ifdef __GNUC__
+__attribute__((unused))
+#endif
 static int GC_mutex_init(GC_mutex_t* mx)
 {
 #ifdef _WIN32
@@ -23,6 +29,9 @@ static int GC_mutex_init(GC_mutex_t* mx)
 #endif
 }
 
+#ifdef __GNUC__
+__attribute__((unused))
+#endif
 static void GC_mutex_delete(GC_mutex_t* mx)
 {
 #ifdef _WIN32
@@ -33,6 +42,9 @@ static void GC_mutex_delete(GC_mutex_t* mx)
    memset(mx, 0, sizeof(*mx));
 }
 
+#ifdef __GNUC__
+__attribute__((unused))
+#endif
 static int GC_mutex_lock(GC_mutex_t* mx)
 {
 #ifdef _WIN32
@@ -43,6 +55,9 @@ static int GC_mutex_lock(GC_mutex_t* mx)
 #endif
 }
 
+#ifdef __GNUC__
+__attribute__((unused))
+#endif
 static int GC_mutex_unlock(GC_mutex_t* mx)
 {
 #ifdef _WIN32
@@ -52,3 +67,5 @@ static int GC_mutex_unlock(GC_mutex_t* mx)
    return pthread_mutex_unlock(mx);
 #endif
 }
+
+#endif /* _GCMUTEX_ */

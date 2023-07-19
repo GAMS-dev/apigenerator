@@ -25,12 +25,6 @@
 #ifndef _GCLGMS_H_
 #define _GCLGMS_H_
 
-/* deprecated */
-#define GAMSVERSION 4400
-#define GAMSMAJOR   44
-#define GAMSMINOR   0
-#define GAMSGOLD    0
-
 #define GLOBAL_MAX_INDEX_DIM  20
 #define GLOBAL_UEL_IDENT_SIZE 64  /* implies len of 63 */
 #define ITERLIM_INFINITY      2147483647
