@@ -12,15 +12,10 @@ The Python based API generator is located under `src/`. The generator consists o
 - cc - for C Function Interface (`[API]cc.c` and `[API]cc.h`),
 - cclib - for C Callable Library (`[API]cclib.c`)
 - cclibdef - for Microsoft Module-Definition file for C Library (`[API]cclib.def`)
-- cb - for `[API]cb1.h`
-- dclib - for Delphi Callable Library (`[API]dclib.dpr`)
-- dcdef - for Delphi Function interface using a DLL (`[API]dcdef.pas`)
-- dcdefex - for Delphi Function interface using the source directly with no DLL involved (`[API]dcdefex.pas`)
-- dodef  - for Delphi Object interface using a DLL (`[API]dodef.pas`)
-- dodefex - for Delphi Object interface using the source directly with no DLL involved `[API]dodefex.pas`)
-- ddec - for Delphi Constants and Declarations (`[API]ddec.inc`)
-- dcon - for Delphi Constants and Declarations (`[API]dcon.pas`)
-
+- py - for (`[API]cc.i`) and (`[API]setup.py`)
+- vb - for Visual Basic for Apllication callable library (`[API]vba.bas`) and Visual Basic .Net callable library (`[API]vbnet.vb`)
+- cs - for C Sharp Callable Library (`[API]cs.cs`)
+- java - for Java interface (`[API].java`) and Java native interface (`[API]jni.c`)
 
 ## API Data Definition File
 
