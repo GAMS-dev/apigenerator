@@ -37,7 +37,7 @@ static {{ apidef.Prefix  }}ErrorCallback_t ErrorCallBack = NULL;
 static int APIErrorCount = 0;
 
 #if !defined(GC_NO_MUTEX)
-{% include 'gcmt_static.c' %}
+{% include 'gcmutex.h' %}
 static GC_mutex_t libMutex;
 static GC_mutex_t objMutex;
 static GC_mutex_t exceptMutex;

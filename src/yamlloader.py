@@ -23,7 +23,7 @@ class Loader(yaml.Loader):
 
         elif isinstance(node, yaml.MappingNode):
             result = {}
-            for k,v in self.construct_mapping(node).iteritems():
+            for k,v in self.construct_mapping(node).items():
                 result[k] = self.extractFile(v)
             return result
 
