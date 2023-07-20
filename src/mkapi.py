@@ -859,12 +859,12 @@ class APIGenerator:
     ''' Generate output file from template '''
     def generateFileFromTemplate(self, outputfilename, templatename, subdirectory='', templatepath=None):
         templatefilename = templatename+'.template.j2'
-#        file_loader = FileSystemLoader(pathlib.Path(__file__).parent)
         templates_dir = os.path.join(os.path.dirname(pathlib.Path(__file__).parent), 'templates')
+        include_dir   = os.path.join(os.path.dirname(pathlib.Path(__file__).parent), 'include')
         if not (templatepath is None):
-            env = Environment(loader=FileSystemLoader([templates_dir, templatepath]))
+            env = Environment(loader=FileSystemLoader([templates_dir, include_dir, templatepath]))
         else:
-            env = Environment(loader=FileSystemLoader(templates_dir))
+            env = Environment(loader=FileSystemLoader([templates_dir, include_dir]))
         template = env.get_template(templatefilename)
 
         output = template.render(api=self.api, apidef=self.apidef, datadef=self.datadef,templatename=templatename)
