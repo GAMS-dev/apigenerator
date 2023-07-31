@@ -176,6 +176,16 @@ static const char* const gmsSVText[GMS_SVIDX_MAX] = {
    "AcroN"
 };
 
+static const double gmsSpecialValues[GMS_SVIDX_MAX] = {
+   GMS_SV_UNDEF,
+   GMS_SV_NA,
+   GMS_SV_PINF,
+   GMS_SV_MINF,
+   GMS_SV_EPS,
+   0.0,
+   GMS_SV_ACR
+};
+
 static const double gmsDefRecVar[GMS_VARTYPE_MAX][GMS_VAL_MAX] = {
    /* .l   .m          .lo          .ub  .scale */
    { 0.0, 0.0,         0.0,         0.0, 1.0},    /* unknown */
