@@ -1,4 +1,4 @@
-# apigenerator
+# API Generator
 
 Python-based generator for GAMS API.
 
@@ -34,6 +34,18 @@ An API definition and congiruation file describes a data definition of API and s
 - List of string numeric constants (`stringconstants`)
 - List of targeted output to be generated (`output`)
 
+## Requirements
+
+Requires Python 3 (Tested with Python 3.11.3) with the following modules:
+- [Jinja](https://jinja.palletsprojects.com/), an extensible templating engine to render a document. (Tested with 3.1.2) 
+- [Ceberus](https://python-cerberus.org/), a schema and data validation tool for Python dictionaries. (Tested with 1.3.4)
+- [Pandas](https://pandas.pydata.org/), a data analysis and manipulation tool for Python programming language. (Tested with 2.0.2)
+- [PyYAML](https://pyyaml.org/), a YAML framework for the Python programming language. (Tested with 6.0)
+
+## License
+
+[MIT](https://choosealicense.com/licenses/mit/)
+
 ## Usage
 
 - To generate files for `[API]` from the data definition and configuration file `[API]api.yaml` using script `mkapi.py`:
@@ -51,4 +63,3 @@ An API definition and congiruation file describes a data definition of API and s
       --output cc
   ```
   will ignore the list of targeted output(`output`) from `[API]api.yaml` and generate only C Function Interface (`[API]cc.c` and `[API]cc.h`).
-
