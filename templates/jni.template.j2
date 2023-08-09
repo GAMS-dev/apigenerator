@@ -881,8 +881,15 @@ JNIEXPORT
 );
    ReturnName = 0;
    {%- endif -%}
+   {%- set return_string = namespace(value=false) -%} 
+   {%- if value['type'] in ['pc'] -%}
+       {%- set return_string.value = true -%}
+   {%- endif -%}
    {%- for fkey,fvalue in f[f['pos'].isin(tpp)].iterrows() if f.shape[0] > 0  -%}
-       {%- if fvalue['type'] in ['css','cpc']                         %}
+       {%- if fvalue['type'] in ['css','cpc']                        -%}
+           {%- if return_string.value %}
+   jstring return_str = (*env)->NewStringUTF(env, rc_{{ value['name'] }});
+           {%- endif %}
    (*env)->ReleaseStringUTFChars(env, {{ fvalue['arg'] }}, local_{{ fvalue['arg'] }});
        {%- elif fvalue['type'] == 'funcptr'                           %}
    if({{ fvalue['arg'] }} != NULL)
@@ -962,8 +969,12 @@ JNIEXPORT
    return rc_{{ value['name'] }}
          {%- if value['type'] == 'ptr' -%} .i {%- endif -%}
 ;
-      {%- elif value['type'] in ['pc','oss']             %}
+      {%- elif value['type'] in ['pc','oss']            -%}
+            {%- if return_string.value %}
+   return return_str;
+            {%- else                   %}
    return (*env)->NewStringUTF(env, rc_{{ value['name'] }});
+            {%- endif -%}
       {%- else                                           %}
    return (*env)->NewStringUTF(env, ClassDotMethodName);
       {%- endif -%}
