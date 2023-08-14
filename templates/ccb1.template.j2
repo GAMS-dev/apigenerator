@@ -1,8 +1,9 @@
 {%- extends "cbase.template.j2" -%}
 
 {%- block header %}
- * GAMS - Loading mechanism for GAMS Expert-Level APIs
-{%- endblock -%}
+ * Header file for C-style interface to the {{ apidef.Prefix.upper() }} library
+ * {{ api.generatedstr }}
+ {%- endblock -%}
 
 {%- block content -%}
 #if defined(_WIN32)
