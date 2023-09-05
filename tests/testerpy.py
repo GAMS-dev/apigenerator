@@ -113,7 +113,7 @@ if __name__ == "__main__":
     p = None
    
 
-    print("Start of testerpy.py running on", sys.argv[1])
+    print("Start of testerpy.py")
     
     print("LibLoad Test")
     ret, sst = wrpCreateL(tptr,"xyzdclib",GMS_SSSIZE)
@@ -512,6 +512,6 @@ if __name__ == "__main__":
     
     --------------------------------------------------------------------'''
     wrpFree(tptr)
-    print("End of testerpy.py running on "+sys.argv[1]+", "+ str(intp_value(rcall))+" failure(s)")
+    print("End of testerpy.py, "+ str(intp_value(rcall))+" failure(s)")
     
     exit(intp_value(rcall))

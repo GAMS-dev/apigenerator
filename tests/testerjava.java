@@ -1,7 +1,8 @@
 package com.gams.tester;
+
 import com.gams.api.*;
 
-public class testerjavac {
+public class testerjava {
 
 static int cb1count=0, cb2count=0, cb3count=0;
 static long optr1=1;
@@ -34,17 +35,6 @@ private static void msg2Callback (int mode, String msgBuf)
   case 3: if (msgBuf.compareTo("Hello S") != 0) cb2f++; break;
   }
 } /* msg2Callback */
-
-/* private static void msg3Callback (int mode, String msgBuf)
-{
-  cb3count++;
-  switch (mode) {
-  case 0: if (msgBuf.compareTo("Prop G") != 0) cb3f++; break;
-  case 1: if (msgBuf.compareTo("Prop A") != 0) cb3f++; break;
-  case 2: if (msgBuf.compareTo("Prop M") != 0) cb3f++; break;
-  case 3: if (msgBuf.compareTo("Prop S") != 0) cb3f++; break;
-  }
-} */ /* msg3Callback */
 
 private static void allTypes (long pntr, int ntgr, double[] cptrda, int[] cptria, String cptrc, String csst, double dbl, int b, char chr)
 {
@@ -100,7 +90,7 @@ public static void main(String[] args) {
 
   rcall[0] = 0;
 
-  System.out.println("Start of test testerjavac on C Library");
+  System.out.println("Start of testerjava");
   System.out.println("LibLoad Test");
   if (wrp.CreateL("xyzdclib",Msg) != 0) wrperror(rcall,"*** LibLoad Test Failed: Create should return 0");
   if (wrp.GetwrpPtr() != 0 )            wrperror(rcall,"*** LibLoad Test Failed: Pointer should be NULL");
@@ -250,24 +240,20 @@ public static void main(String[] args) {
 
   System.out.println("ALLARGCB Test");
   optr1 = wrp.GetwrpPtr();
-  if (wrp.FPAllTy("com/gams/tester/testerjavac.allTypes") > 0 || cb4f > 0) wrperror(rcall,"*** ALLARGCB Test failed!");
+  if (wrp.FPAllTy("com/gams/tester/testerjava.allTypes") > 0 || cb4f > 0) wrperror(rcall,"*** ALLARGCB Test failed!");
   System.out.println("GDXARGCB Test");
-  if (wrp.FPgdxTy("com/gams/tester/testerjavac.gdxTypes") > 0 || cb5f > 0) wrperror(rcall,"*** GDXARGCB Test failed!");
+  if (wrp.FPgdxTy("com/gams/tester/testerjava.gdxTypes") > 0 || cb5f > 0) wrperror(rcall,"*** GDXARGCB Test failed!");
   System.out.println("MCB Test");
-  wrp.setmcb1("com/gams/tester/testerjavac.msg1Callback");
-  wrp.setmcb2("com/gams/tester/testerjavac.msg2Callback");
-  /* wrp.mcb0PSet("com/gams/tester/testerjavac.msg3Callback"); */
+  wrp.setmcb1("com/gams/tester/testerjava.msg1Callback");
+  wrp.setmcb2("com/gams/tester/testerjava.msg2Callback");
+  /* wrp.mcb0PSet("com/gams/tester/testerjava.msg3Callback"); */
   wrp.initmcb();
 
   if (cb1f!=0 || cb1count!=4) wrperror(rcall,"*** MCB1 Test failed!");
   if (cb2f!=0 || cb2count!=4) wrperror(rcall,"*** MCB2 Test failed!");
-  /* if (cb3f!=0 || cb3count!=4) wrperror(rcall,"*** MCB3 Test failed!"); */
 
   System.out.println("FUNCPTR Test");
-  if (wrp.getmcb1().compareTo("com/gams/tester/testerjavac.msg1Callback") != 0) wrperror(rcall,"*** FUNCPTR Test failed!");
-
-  /* System.out.println("FUNCPTRPROP Test");
-  if (wrp.mcb0P().compareTo("com/gams/tester/testerjavac.msg3Callback") !=0 ) wrperror(rcall,"*** FUNCPTRPROP Test failed!"); */
+  if (wrp.getmcb1().compareTo("com/gams/tester/testerjava.msg1Callback") != 0) wrperror(rcall,"*** FUNCPTR Test failed!");
 
   System.out.println("PTRPROP Test");
   wrp.ptrPSet( p[0]);
@@ -314,15 +300,16 @@ public static void main(String[] args) {
   if (!wrp.boolR()) wrperror(rcall, "*** BOOLRET Test failed!");
 
   System.out.println("FPTRRET Test : "+wrp.FuncPtrR());
-  if (wrp.FuncPtrR().compareTo("com/gams/tester/testerjavac.msg1Callback") != 0) wrperror(rcall, "*** FPTRRET Test failed!");
+  if (wrp.FuncPtrR().compareTo("com/gams/tester/testerjava.msg1Callback") != 0) wrperror(rcall, "*** FPTRRET Test failed!");
 
   System.out.println("CHAR1  Test");
   if (wrp.C1('G') != 0) wrperror(rcall,"*** CHAR1 Test failed!");
 
   wrp.Free();
-  System.out.println("End of test testerjava on C Library : " + rcall[0] + " failures");
+  System.out.println("End of testerjava: " + rcall[0] + " failures");
   System.out.println();
 
   System.exit(rcall[0]);
   } /* main */
 }
+
