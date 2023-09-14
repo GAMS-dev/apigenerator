@@ -327,16 +327,21 @@ int wrpsvals2(wrptestRec_t *wrp, double *sval)
 
 int wrpbool1(wrptestRec_t *wrp, int b)
 {
-  if(b != 1) return 1;
+  printf("  c1 wrpbool1: b=%d\n",b);
+  if(b == 0) return 1;
   b = 0;
+  printf("  c2 wrpbool1: b=%d\n",b);
   return 0;
 }
 
 int wrpbool2 (wrptestRec_t *wrp, int *b)
 {
+  printf("  c1 wrpbool2: b=%d\n", *b);
   int rc = 0;
   if(*b != 0) rc = 1;
   *b = 1;
+  printf("  c2 wrpbool2: b=%d\n", *b);
+  printf("  c3 wrpbool2: rc=%d\n",rc);
   return rc;
 }
 

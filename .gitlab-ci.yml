@@ -11,11 +11,11 @@ apigenerate:
         entrypoint: [ "" ]
     script:
         - echo "This job generates api files for wrp library on leg"
-        - python3 src/mkapi.py --apidef `pwd`/tests/wrptestapi.yaml --outputpath wrptest/
+        - python3 src/mkapi.py --apidef `pwd`/tests/wrptestapi.yaml --outputpath tests/wrptest/
     artifacts:
         name: apiwrptest
         expire_in: 2 hours
-        paths: [ wrptest/* ]
+        paths: [ tests/wrptest/* ]
 
 test-leg:
     stage: test
@@ -26,46 +26,21 @@ test-leg:
         name: $CONTAINER_REG/machines/leg/builder-full:latest
         entrypoint: [""]  
     script:
-        - echo "Building tests for apigenerated files on leg"
+        - echo "Preaparing environment for python on leg"
         - source /etc/profile.d/legbuilder.sh
-        - which gcc
-        - cp tests/* wrptest/
-        - cp include/gamsglobals.* wrptest/
-        - cp include/gclgms.h wrptest/
-        - cd wrptest 
-        - echo "building libc_wrpcclib64.so..."
-        - gcc -c -DLEG -DCIA_LEX -DSUB_ -O -Wall -Werror-implicit-function-declaration -Wreturn-type -Wmissing-prototypes -Wmissing-declarations -DFNAME_LCASE_DECOR -fPIC -fvisibility=hidden -D_XOPEN_SOURCE=700  -I../include  -InoPALLIBDIR c_wrpcclib.c
-        - gcc -c -DLEG -DCIA_LEX -DSUB_ -O -Wall -Werror-implicit-function-declaration -Wreturn-type -Wmissing-prototypes -Wmissing-declarations -DFNAME_LCASE_DECOR -fPIC -fvisibility=hidden -D_XOPEN_SOURCE=700  -I../include  -InoPALLIBDIR wrptest.c
-        - gcc -o libc_wrpcclib64.so -nostartfiles -shared -Wl,-Bsymbolic -pthread  -Wl,-rpath,\$ORIGIN  c_wrpcclib.o  wrptest.o  -lm -ldl
-        - echo "building testercc..."
-        - gcc -c -DCLibUse -fPIC -DLEG -DCIA_LEX -DSUB_FR -O -Wall -Werror-implicit-function-declaration -Wreturn-type -Wmissing-prototypes -Wmissing-declarations -D_XOPEN_SOURCE=700  -I../include  testercc.c
-        - gcc -c -DCLibUse -fPIC -DLEG -DCIA_LEX -DSUB_FR -O -Wall -Werror-implicit-function-declaration -Wreturn-type -Wmissing-prototypes -Wmissing-declarations -D_XOPEN_SOURCE=700  -I../include  c_wrpcc.c
-        - gcc -pthread -o wrpccctest -Wl,-rpath,\$ORIGIN  ./testercc.o ./c_wrpcc.o   -lm -ldl
-        - echo "building for testerjava..."
-        - gcc -c -fPIC -DLEG -DCIA_LEX -O -Wall -DFNAME_LCASE_DECOR -fPIC -fvisibility=hidden -D_XOPEN_SOURCE=700  -I,./include -I. -I"/usr/lib/jvm/java-11-openjdk/bin//../include" -I"/usr/lib/jvm/java-11-openjdk/bin//../include/linux" -I../include c_wrpjni.c
-        - gcc -o libc_wrpjni64.so -nostartfiles -shared -Wl,-Bsymbolic -pthread  -Wl,-rpath,\$ORIGIN  c_wrpjni.o  c_wrpcc.o    -lm -ldl
-        - javac -d . *.java
-        - echo "building for testerpy..."
-        - echo $MINICONDA
         - eval "$($MINICONDA shell.bash hook)"
         - conda create -y -n wrptest-env-3.8 python=3.8
-        - conda env list
         - conda activate wrptest-env-3.8
-        - python --version
-        - which python
         - conda install -y -c conda-forge swig
-        - conda list
-        - sed "s/..\/..\/C\/api\///g" c_wrpsetup.py > c_wrpsetupx.py
-        - swig -python c_wrpcc.i
-        - sed -i -E "s/^.*import.*_c_wrpcc/import _c_wrpcc/g" c_wrpcc.py
-        - CC=gcc CFLAGS="-DLEG -DCIA_LEX -O -Wall -DFNAME_LCASE_DECOR -fPIC -fvisibility=hidden -D_XOPEN_SOURCE=700  -DGC_NO_MUTEX  -InoPALLIBDIR" LDFLAGS="" ARCHFLAGS= LDSHARED="gcc -nostartfiles -shared -Wl,-Bsymbolic -pthread  -Wl,-rpath,\$ORIGIN" python c_wrpsetupx.py build --build-lib .
+        - echo "Building tests for apigenerated files on leg"
+        - cd tests
+        - make
         - echo "This job test apigenerated files on leg"
-        - head -30 c_wrpcc.py
         - WSYS=unix ./apiwrappertest.sh
     artifacts:
         name: wrptest-leg
         expire_in: 2 hours
-        paths: [ wrptest/* ]
+        paths: [ tests/wrptest/* ]
 
 test-wei:
     stage: test
@@ -76,9 +51,10 @@ test-wei:
         name: $CONTAINER_REG/machines/wei/builder-full:latest
     script:
         - echo "Building tests for apigenerated files on wei"
-        - cp tests/* wrptest/
-        - cp include/gamsglobals.* wrptest/
-        - cd wrptest 
+        - cp tests/* tests/wrptest/
+        - cp include/gamsglobals.* tests/wrptest/
+        - cp include/gclgms.h tests/wrptest/
+        - cd tests/wrptest
         - icl.exe -DWEI -DCIA_WEX -c -nologo -MD -DFNAME_UCASE_NODECOR -DF_CALLCONV=__cdecl -D_CRT_DISABLE_PERFCRIT_LOCKS -D_CRT_SECURE_NO_WARNINGS -W3 -O3  -I../include wrptest.c
         - icl.exe -DWEI -DCIA_WEX -c -nologo -MD -DFNAME_UCASE_NODECOR -DF_CALLCONV=__cdecl -D_CRT_DISABLE_PERFCRIT_LOCKS -D_CRT_SECURE_NO_WARNINGS -W3 -O3  -I../include c_wrpcclib.c
         - link -out:c_wrpcclib64.dll -dll c_wrpcclib.obj  wrptest.obj
@@ -98,18 +74,25 @@ test-wei:
         - $env:Path = "C:\Miniconda\envs\wrptest-env-3.8;C:\Miniconda\envs\wrptest-env-3.8\Scripts;" + $env:Path
         - python --version
         - which python
-        - conda install -y -c conda-forge swig
-        - conda list
-        - sed "s/..\/..\/C\/api\///g" c_wrpsetup.py > c_wrpsetupx.py
+        - python -m pip install swig
+        - which swig
+        - sed -i "s#../../C/api/##g" c_wrpsetup.py
         - swig -python c_wrpcc.i
         - sed -i -E "s/^.*import.*_c_wrpcc/import _c_wrpcc/g" c_wrpcc.py
-        - CC=icl.exe CFLAGS="-DWEI -DCIA_WEX -DSUB_ -c -nologo -MD -DFNAME_UCASE_NODECOR -DF_CALLCONV=__cdecl -D_CRT_DISABLE_PERFCRIT_LOCKS -D_CRT_SECURE_NO_WARNINGS -W3 -O3  -DGC_NO_MUTEX" LDFLAGS="" ARCHFLAGS= LDSHARED="icl.exe -LD -link -nodefaultlib:libc.lib" python c_wrpsetupx.py build --build-lib .
-        - ls
+        - $env:CC = "icl.exe"
+        - $env:CFLAGS = "-DWEI -DCIA_WEX -DSUB_ -c -nologo -MD -DFNAME_UCASE_NODECOR -DF_CALLCONV=__cdecl -D_CRT_DISABLE_PERFCRIT_LOCKS -D_CRT_SECURE_NO_WARNINGS -W3 -O3  -DGC_NO_MUTEX"
+        - $env:LDSHARED = "icl.exe -LD -link -nodefaultlib:libc.lib"
+        - python c_wrpsetup.py build --build-lib .
+        - echo "building for testercs..."
+        - csc.exe /out:testercs.exe /platform:x64 testercs.cs c_wrpcs.cs gamsglobals.cs
+        - echo "building for testervbnet..."
+        - vbc.exe /out:testervbnet.exe /platform:x64 testervbnet.vb c_wrpvbnet.vb gamsglobals.vb
         - echo "This job test apigenerated files on wei"
+        - $env:Path = "C:\builds\devel\apigenerator\tests\wrptest;" + $env:Path
         - $env:WSYS = "windows"
+        - cd ..
         - sh apiwrappertest.sh
     artifacts:
         name: wrptest-wei
         expire_in: 2 hours
-        paths: [ wrptest/* ]
-
+        paths: [ tests/wrptest/* ]
