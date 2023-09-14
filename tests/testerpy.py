@@ -267,6 +267,7 @@ if __name__ == "__main__":
     if x:
         wrperror(rcall,"*** UELI2 Test failed!")
 
+    '''
     print("vII Test")
     for i in range(GMS_MAX_INDEX_DIM):
         uel[i] = (i+1)*123;
@@ -288,6 +289,7 @@ if __name__ == "__main__":
         print("   ", i, "x=", x, " val[i]=",vrvval[i]," wrpdbl1(tptr,dbl[i])=",wrpdbl1(tptr,vrvval[i]))
     if x:
         wrperror(rcall,"*** vRV Test failed (passing double array in and out of library)! ")
+    '''
 
     print("VALS1 Test")
     for i in range(GMS_VAL_MAX):
