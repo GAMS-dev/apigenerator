@@ -6,17 +6,18 @@ SRCDIR=$(pwd)
 TESTDIR=$(pwd)/wrptest
 
 set -x
-if [ ${WSYS} = unix ] ; then
+if [ ${OSTYPE} = linux ] || [ ${OSTYPE} = macos ] ; then
    export LD_LIBRARY_PATH=${TESTDIR}
 fi
 
 fails=0
 
-${SRCDIR}/wrptest.run ${TESTDIR}/wrpccctest || (( fails=fails+${?} ))
-
-if [ ${WSYS} = windows ] ; then
-   ${TESTDIR}/testercs.exe || (( fails=fails+${?} ))
+if [ ${OSTYPE} = windows ] ; then
+   ${SRCDIR}/wrptest.run ${TESTDIR}/wrpccctest.exe || (( fails=fails+${?} ))
+   ${TESTDIR}/testercs.exe    || (( fails=fails+${?} ))
    ${TESTDIR}/testervbnet.exe || (( fails=fails+${?} ))
+else
+   ${SRCDIR}/wrptest.run ${TESTDIR}/wrpccctest || (( fails=fails+${?} ))
 fi
 
 if which java > /dev/null ; then

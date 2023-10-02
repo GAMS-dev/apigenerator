@@ -33,10 +33,12 @@ test-leg:
         - conda activate wrptest-env-3.8
         - conda install -y -c conda-forge swig
         - echo "Building tests for apigenerated files on leg"
+        - export GSYS=leg
+        - export GCIA=lex
         - cd tests
         - make
         - echo "This job test apigenerated files on leg"
-        - WSYS=unix ./apiwrappertest.sh
+        - OSTYPE=linux ./apiwrappertest.sh
     artifacts:
         name: wrptest-leg
         expire_in: 2 hours
@@ -51,23 +53,6 @@ test-wei:
         name: $CONTAINER_REG/machines/wei/builder-full:latest
     script:
         - echo "Building tests for apigenerated files on wei"
-        - cp tests/* tests/wrptest/
-        - cp include/gamsglobals.* tests/wrptest/
-        - cp include/gclgms.h tests/wrptest/
-        - cd tests/wrptest
-        - icl.exe -DWEI -DCIA_WEX -c -nologo -MD -DFNAME_UCASE_NODECOR -DF_CALLCONV=__cdecl -D_CRT_DISABLE_PERFCRIT_LOCKS -D_CRT_SECURE_NO_WARNINGS -W3 -O3  -I../include wrptest.c
-        - icl.exe -DWEI -DCIA_WEX -c -nologo -MD -DFNAME_UCASE_NODECOR -DF_CALLCONV=__cdecl -D_CRT_DISABLE_PERFCRIT_LOCKS -D_CRT_SECURE_NO_WARNINGS -W3 -O3  -I../include c_wrpcclib.c
-        - link -out:c_wrpcclib64.dll -dll c_wrpcclib.obj  wrptest.obj
-        - echo "building testercc..."
-        - icl.exe -DCLibUse -DWEI -DCIA_WEX -DSUB_FR -c -nologo -DDLL -MD -D_CRT_SECURE_NO_WARNINGS -D_CRT_DISABLE_PERFCRIT_LOCKS -O3  -I../include  testercc.c
-        - icl.exe -DCLibUse -DWEI -DCIA_WEX -DSUB_FR -c -nologo -DDLL -MD -D_CRT_SECURE_NO_WARNINGS -D_CRT_DISABLE_PERFCRIT_LOCKS -O3  -I../include  c_wrpcc.c
-        - link -out:wrpccctest.exe  ./testercc.obj ./c_wrpcc.obj  
-        - echo "building for testerjava..."
-        - icl.exe -DWEI -DCIA_WEX -DSUB_ -c -nologo -MD -DFNAME_UCASE_NODECOR -DF_CALLCONV=__cdecl -D_CRT_DISABLE_PERFCRIT_LOCKS -D_CRT_SECURE_NO_WARNINGS -W3 -O3 -I../include -I. -I"c:\Java\include" -I"c:\Java\include\win32" c_wrpjni.c
-        - link -out:c_wrpjni64.dll -dll ./c_wrpjni.obj  ./c_wrpcc.obj
-        - which javac
-        - javac -d . gamsglobals.java *.java
-        - echo "building for testerpy..."
         - conda create -y -n wrptest-env-3.8 python=3.8
         - conda env list
         - conda activate wrptest-env-3.8
@@ -76,23 +61,91 @@ test-wei:
         - which python
         - python -m pip install swig
         - which swig
-        - sed -i "s#../../C/api/##g" c_wrpsetup.py
-        - swig -python c_wrpcc.i
-        - sed -i -E "s/^.*import.*_c_wrpcc/import _c_wrpcc/g" c_wrpcc.py
-        - $env:CC = "icl.exe"
-        - $env:CFLAGS = "-DWEI -DCIA_WEX -DSUB_ -c -nologo -MD -DFNAME_UCASE_NODECOR -DF_CALLCONV=__cdecl -D_CRT_DISABLE_PERFCRIT_LOCKS -D_CRT_SECURE_NO_WARNINGS -W3 -O3  -DGC_NO_MUTEX"
-        - $env:LDSHARED = "icl.exe -LD -link -nodefaultlib:libc.lib"
-        - python c_wrpsetup.py build --build-lib .
-        - echo "building for testercs..."
+        - cp tests/* tests/wrptest/
+        - cp include/gamsglobals.* tests/wrptest/
+        - cp include/gclgms.h tests/wrptest/
+#        - echo "test make file..."
+        - $env:GSYS = "wei"
+        - $env:GCIA = "wex"
+        - cd tests
+        - make
+        - cd wrptest
+#        - icl.exe -DWEI -DCIA_WEX -c -nologo -MD -DFNAME_UCASE_NODECOR -DF_CALLCONV=__cdecl -D_CRT_DISABLE_PERFCRIT_LOCKS -D_CRT_SECURE_NO_WARNINGS -W3 -O3  -I../include wrptest.c
+#        - icl.exe -DWEI -DCIA_WEX -c -nologo -MD -DFNAME_UCASE_NODECOR -DF_CALLCONV=__cdecl -D_CRT_DISABLE_PERFCRIT_LOCKS -D_CRT_SECURE_NO_WARNINGS -W3 -O3  -I../include c_wrpcclib.c
+#        - link -out:c_wrpcclib64.dll -dll c_wrpcclib.obj  wrptest.obj
+#        - echo "building testercc..."
+#        - icl.exe -DCLibUse -DWEI -DCIA_WEX -DSUB_FR -c -nologo -DDLL -MD -D_CRT_SECURE_NO_WARNINGS -D_CRT_DISABLE_PERFCRIT_LOCKS -O3  -I../include  testercc.c
+#        - icl.exe -DCLibUse -DWEI -DCIA_WEX -DSUB_FR -c -nologo -DDLL -MD -D_CRT_SECURE_NO_WARNINGS -D_CRT_DISABLE_PERFCRIT_LOCKS -O3  -I../include  c_wrpcc.c
+#        - link -out:wrpccctest.exe  ./testercc.obj ./c_wrpcc.obj
+#        - echo "building for testerjava..."
+#        - icl.exe -DWEI -DCIA_WEX -DSUB_ -c -nologo -MD -DFNAME_UCASE_NODECOR -DF_CALLCONV=__cdecl -D_CRT_DISABLE_PERFCRIT_LOCKS -D_CRT_SECURE_NO_WARNINGS -W3 -O3 -I../include -I. -I"c:\Java\include" -I"c:\Java\include\win32" c_wrpjni.c
+#        - link -out:c_wrpjni64.dll -dll ./c_wrpjni.obj  ./c_wrpcc.obj
+#        - which javac
+#        - javac -d . gamsglobals.java *.java
+#        - echo "building for testerpy..."
+#        - sed -i "s#../../C/api/##g" c_wrpsetup.py
+#        - swig -python c_wrpcc.i
+#        - sed -i -E "s/^.*import.*_c_wrpcc/import _c_wrpcc/g" c_wrpcc.py
+#        - $env:CC = "icl.exe"
+#        - $env:CFLAGS = "-DWEI -DCIA_WEX -DSUB_ -c -nologo -MD -DFNAME_UCASE_NODECOR -DF_CALLCONV=__cdecl -D_CRT_DISABLE_PERFCRIT_LOCKS -D_CRT_SECURE_NO_WARNINGS -W3 -O3  -DGC_NO_MUTEX"
+#        - $env:LDSHARED = "icl.exe -LD -link -nodefaultlib:libc.lib"
+#        - python c_wrpsetup.py build --build-lib .
+#        - echo "building for testercs..."
         - csc.exe /out:testercs.exe /platform:x64 testercs.cs c_wrpcs.cs gamsglobals.cs
-        - echo "building for testervbnet..."
+#        - echo "building for testervbnet..."
         - vbc.exe /out:testervbnet.exe /platform:x64 testervbnet.vb c_wrpvbnet.vb gamsglobals.vb
         - echo "This job test apigenerated files on wei"
         - $env:Path = "C:\builds\devel\apigenerator\tests\wrptest;" + $env:Path
-        - $env:WSYS = "windows"
+        - $env:OSTYPE = "windows"
         - cd ..
         - sh apiwrappertest.sh
     artifacts:
         name: wrptest-wei
+        expire_in: 2 hours
+        paths: [ tests/wrptest/* ]
+
+test-deg:
+    stage: test
+    when: on_success
+    dependencies: [apigenerate]
+    tags: [macos]
+    script:
+        - echo "Preaparing environment for python on deg"
+        - eval "$($MINICONDA shell.bash hook)"
+        - conda create -y -n wrptest-env-3.8 python=3.8
+        - conda activate wrptest-env-3.8
+        - conda install -y -c conda-forge swig
+        - echo "Building tests for apigenerated files on deg"
+        - export GSYS=deg
+        - export GCIA=dex
+        - cd tests
+        - make
+        - echo "This job test apigenerated files on deg"
+        - OSTYPE=macos ./apiwrappertest.sh
+    artifacts:
+        name: wrptest-deg
+        expire_in: 2 hours
+        paths: [ tests/wrptest/* ]
+
+test-dac:
+    stage: test
+    when: on_success
+    dependencies: [apigenerate]
+    tags: [macos-arm64]
+    script:
+        - echo "Preaparing environment for python on dac"
+        - eval "$($MINICONDA shell.bash hook)"
+        - conda create -y -n wrptest-env-3.8 python=3.8
+        - conda activate wrptest-env-3.8
+        - conda install -y -c conda-forge swig
+        - echo "Building tests for apigenerated files on dac"
+        - export GSYS=dac
+        - export GCIA=dax
+        - cd tests
+        - make
+        - echo "This job test apigenerated files on dac"
+        - OSTYPE=macos ./apiwrappertest.sh
+    artifacts:
+        name: wrptest-dac
         expire_in: 2 hours
         paths: [ tests/wrptest/* ]
