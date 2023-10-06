@@ -1,0 +1,36 @@
+#!/bin/sh
+
+# usage: scriptname executable_name
+# note we restrict ourselves to Bourne shell syntax here
+# do not be tempted to use Bash extentions
+
+# The wrptest programs requires that the wrptest library be in
+# the load path.  On Windows, that's trivial, since we put the library
+# in the current directory.  On Unix/Linux, this script sets the correct
+# load path.
+
+if [ 0 = $# ] ; then
+    echo "usage: $0 executable_name [ args ]"
+    exit 1
+fi
+
+# Linux
+if [ -z "$LD_LIBRARY_PATH" ] ; then
+    LD_LIBRARY_PATH=.
+else
+    LD_LIBRARY_PATH=.:$LD_LIBRARY_PATH
+fi
+export LD_LIBRARY_PATH
+
+# macOS
+if [ -z "$DYLD_LIBRARY_PATH" ] ; then
+    DYLD_LIBRARY_PATH=.
+else
+    DYLD_LIBRARY_PATH=.:$DYLD_LIBRARY_PATH
+fi
+export DYLD_LIBRARY_PATH
+
+exeName=$1
+shift
+$exeName $*
+exit $?

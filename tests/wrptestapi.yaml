@@ -1,0 +1,468 @@
+---
+title       : API Wrapper Test
+prefix      : wrp
+
+DObject     : wrptest
+DObjectInt  : wrptestObj
+extracUse   : '#include "wrp.h"'
+
+# generate interface files that have a higher API version than the DLL 
+# to test some forward compatibility stuff.
+configurations:
+ - clibtest:
+     clibuse  : True
+     output   : [ cclib, cclibdef, cb ]
+     testmode : False
+     apiversion: 2
+     compatibleversion : [2,1]
+     preprefix   : c_
+ - clibforwardtest:
+     clibuse  : True
+     output   : [ cc, py, vb, cs, java ]
+     testmode : True
+     apiversion: 3
+     compatibleversion: [3,2,1]
+     preprefix   : c_
+
+# property names and actions
+properties:
+ - wrpptrP:
+    type     : ptr
+    action   : r
+    function : getptrP
+ - wrpptrP:
+    type     : ptr
+    action   : w
+    function : setptrP
+ - wrpintP:
+    type     : int
+    action   : r
+    function : getintP
+ - wrpintP:
+    type     : int
+    action   : w
+    function : setintP
+ - wrpint64P:
+    type     : int64
+    action   : r
+    function : getint64P
+ - wrpint64P:
+    type     : int64
+    action   : w
+    function : setint64P
+ - wrpPCP:
+    type     : PC
+    action   : r
+    function : getPCP
+ - wrpPCP:
+    type     : PC
+    action   : w
+    function : setPCP
+ - wrpSSP:
+    type      : oSS
+    action    : r
+    function  : getSSP
+    condition : 'clibuse==False'
+ - wrpSSP:
+    type      : oSS
+    action    : w
+    function  : setSSP
+    condition : 'clibuse==False'
+ - wrpCP:
+    type     : C
+    action   : r
+    function : getCP
+ - wrpCP:
+    type     : C
+    action   : w
+    function : setCP
+ - wrpDP:
+    type     : D
+    action   : r
+    function : getDP
+ - wrpDP:
+    type     : D
+    action   : w
+    function : setDP
+ - wrpboolP:
+    type     : bool
+    action   : r
+    function : getboolP
+ - wrpboolP:
+    type     : bool
+    action   : w
+    function : setboolP
+ # wrpmcb0P.FuncPtr.(r.getmcb0P,w.setmcb0P)
+ - wrpdiffargsP:
+    type      : int
+    action    : w
+    function  : setdiffargsP
+    condition : 'testmode==False'
+ - wrpdiffargsP: 
+    type      : D
+    action    : w
+    function  : getdiffargsP
+    condition : 'testmode==True'
+ - wrpnotthereP:
+    type      : int
+    action    : r
+    function  : getnotthereP
+    condition : 'testmode==True'
+
+#function and procedures
+functions:
+ - wrpptr1:
+    type       : int
+    parameters :
+      - pntr:
+          type : ptr
+ - wrpptr2:
+    type       : int
+    parameters :
+      - pntr:
+          type : Vptr
+ - wrpint1:
+    type       : int
+    parameters : 
+      - ntgr:
+          type : int
+ - wrpint2:
+    type       : int
+    parameters : 
+      - ntgr: 
+          type : Vint
+ - wrpint64:
+    type       : int
+    parameters : 
+      - ntgr:
+          type : int64
+ - wrpvint64:
+    type       : int
+    parameters : 
+      - ntgr: 
+         type  : Vint64
+ - wrpoint64:
+    type       : int
+    parameters : 
+      - ntgr: 
+         type  : Oint64
+ - wrppda1:
+    type       : int
+    parameters :
+      - ptrda:
+         type  : CPDA
+ - wrppda2:
+    type       : int
+    parameters :
+      - ptrda:
+         type  : PDA
+ - wrppia1:
+    type       : int
+    parameters :
+      - ptria:
+         type  : CPLIA
+ - wrppia2:
+    type       : int
+    parameters :
+      - ptria:
+         type  : PLIA
+ - wrppc1:
+    type       : int
+    parameters : 
+      - ptrc:
+         type  : CPC
+ - wrppc2:
+    type       : int
+    parameters : 
+      - ptrc:
+         type  : PC
+ - wrpC1 :
+    type       : int
+    parameters : 
+      - chr:
+         type  : C
+ - wrpC2 :
+    type       : int
+    parameters : 
+      - chr:
+         type  : vC
+ - wrpsst1:
+    type       : int
+    parameters :
+      - sst: 
+         type  : CSS
+ - wrpsst2:
+    type       : int
+    parameters :
+      - sst: 
+         type  : oSS
+ - wrpsst3:
+    type       : int
+    parameters :
+      - sst: 
+         type  : xSS
+ - wrpdbl1:
+    type       : int
+    parameters :
+      - dbl: 
+         type  : D
+ - wrpdbl2:
+    type       : int
+    parameters :
+      - dbl: 
+         type  : VD
+ - wrpueli1:
+    type       : int
+    parameters :
+      - ntgri:
+         type  : cII
+ - wrpueli2:
+    type       : int
+    parameters :
+      - ntgri:
+         type  : vII
+ - wrpvals1:
+    type       : int
+    parameters :
+      - recv:
+         type : cRV
+ - wrpvals2:
+    type       : int
+    parameters :
+      - recv:
+         type : vRV
+ - wrpstri1:
+    type       : int
+    parameters :
+      - ssti:
+         type  : cSI
+ - wrpstri2:
+    type       : int
+    parameters :
+      - ssti:
+         type  : oSI
+ - wrpsvals1 :
+    type       : int
+    parameters : 
+      - sval:
+         type  : cSVA
+ - wrpsvals2 :
+    type       : int
+    parameters :
+      - sval:
+         type  : vSVA
+ - wrpbool1  :
+    type       : int
+    parameters : 
+      - b:
+         type  : bool
+ - wrpbool2  :
+    type       : int
+    parameters : 
+      - b:
+         type  : Vbool
+ - wrpsetmcb1:
+    type       : int
+    parameters :
+      - mcb0:
+         type   : FuncPtr
+ - wrpgetmcb1:
+    type       : FuncPtr
+ - wrpsetmcb2:
+    type       : int
+    parameters : 
+      - mcb255: 
+         type  : FuncPtr
+ - wrpinitmcb:
+    type       : void
+ - wrpptrR  :
+    type       : ptr
+ - wrpintR  :
+    type       : int
+ - wrpint64R:
+    type       : int64
+ - wrpPCR   :
+    type       : PC
+    parameters : 
+      - ptrc: 
+         type  : cPC
+ - wrpSSTR:
+    type       : oSS
+    condition  : 'CLibUse==False'
+ - wrpCR:
+    type       : C
+ - wrpDR:
+    type       : D
+ - wrpboolR   :
+    type       : bool
+ - wrpFuncPtrR:
+    type       : FuncPtr
+ - wrpMaxArg  :
+    type       : int
+    parameters : 
+      - int1 :
+         type : int
+      - int2 :
+         type : int
+      - int3 :
+         type : int
+      - int4 :
+         type : int
+      - int5 : 
+         type : int
+      - int6 :
+         type : int
+      - int7 :
+         type : int
+      - int8 :
+         type : int
+      - int9 :
+         type : int
+      - int10: 
+         type : int
+      - int11:
+         type : int
+      - int12:
+         type : int
+      - int13:
+         type : int
+      - int14:
+         type : int
+      - int15: 
+         type : int
+      - int16:
+         type : int
+      - int17:
+         type : int
+      - int18:
+         type : int
+      - int19:
+         type : int
+      - int20: 
+         type : int
+ - wrpFPAllTy:
+    type       : int
+    parameters : 
+      - allArg:
+         type : FuncPtr
+ - wrpFPgdxTy:
+    type      : int
+    parameters : 
+      - gdxArg:
+         type : FuncPtr
+
+ - wrpdiffargs1:
+    type       : void
+    condition : 'testmode==False'
+ - wrpdiffargs2:
+    type       : void
+    parameters : 
+      - dummy:
+         type  : D
+    condition : 'testmode==False'
+ - wrpdiffargs1 :
+    type       : void
+    parameters : 
+      - dummy:
+         type  : int
+    condition : 'testmode==True'
+ - wrpdiffargs2 :
+    type       : void
+    parameters :
+      - dummy:
+         type  : int
+    condition : 'testmode==True'
+ - wrpisnotthere:
+    type      : void
+    condition : 'testmode==True'
+ - wrpvII:
+    type       : int
+    parameters :
+      - pvii:
+         type  : vII
+ - wrpvRV:
+    type       : int
+    parameters :
+      - pvrv:
+         type : vRV
+
+#function pointer definitions
+functionpointers:
+ - wrpsetmcb1:
+    position   : 1
+    function   : TMsgCallback0
+    type       : void
+    parameters : 
+      - mode:
+         type   : int
+      - bufPtr:
+         type   : CPC
+ - wrpgetmcb1:
+    position   : 0
+    function   : TMsgCallback0
+    type       : void
+    parameters :
+      - mode:
+         type   : int
+      - bufPtr:
+         type   : CPC
+ - wrpsetmcb2 :
+    position   : 1
+    function   : TMsgCallback255
+    type       : void
+    parameters : 
+      - mode:
+         type  : int
+      - msgBuf:
+         type  : CSS
+ - wrpFuncPtrR:
+    position   : 0
+    function   : TMsgCallback0
+    type       : void
+    parameters : 
+      - mode:
+         type  : int
+      - bufPtr:
+         type  : CPC
+ - wrpFPAllTy  :
+    position   : 1
+    function   : TAllTypesCB  
+    type       : void
+    parameters :
+      - pntr:
+         type  : ptr
+      - ntgr:
+         type  : int
+      - cptrda:
+         type        : CPDA
+         arraylength : 3
+      - cptria:
+         type        : CPLIA
+         arraylength : 3
+      - cptrc:
+         type  : CPC
+      - csst:
+         type  : cSS
+      - dbl:
+         type  : D
+      - b:
+         type  : bool
+      - chr:
+         type  : C
+ - wrpFPgdxTy  :
+    position   : 1
+    function   : TgdxTypesCB  
+    type       : void
+    parameters :
+      - ntgri:
+         type  : cII
+      - recv:
+         type  : cRV
+      - ssti:
+         type  : cSI
+      - sval:
+         type  : cSVA
+
+# Function pointer in properties
+# wrpmcb0P   .p.TMsgCallback0  .(0.result.void,1.mode.int,2.bufPtr.CPC)
+...
