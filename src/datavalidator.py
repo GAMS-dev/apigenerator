@@ -191,6 +191,14 @@ class DataValidator(object):
                             'return'      : { 'type' : 'string'},
                             'description' : { 'type' : 'string'},
                             'details' : { 'type' : 'string'},
+                            'static'  : { 'type' : 'boolean' },
+                            'const'   : { 'type' : 'boolean' },
+                            'code'    : {
+                                'type' : 'dict',
+                                'allowed': ['c','cpp','cs','py','java','f90','pas', 'jl', 'vb', 'r', 'm', 'vba'],
+                                'keysrules': { 'type': 'string' },
+                                'valuesrules': { 'type': 'string' }
+                            },
                             'parameters'  : { 
                                 'type'        : 'list',
                                 'schema'     : { 
