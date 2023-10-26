@@ -1151,7 +1151,7 @@ class APIGenerator:
                                     exceptionlist.append('type is missing from parameter '+fk+' of function definition "'+k+'"')
                                 ftext.append(fv['description'])   if 'description' in fv.keys() else ftext.append('')
                                 fdetails.append(fv['details'] if 'details' in fv.keys() else '')
-                    fmapkeys = [ 'condition','type','parameters','return','description','group','details']
+                    fmapkeys = [ 'condition','type','parameters','return','description','group','details','static','const','code']
                     warninglist = [ key for key in list(v.keys()) if key not in fmapkeys ]
                     if len(warninglist) > 0:
                         print('Warning: Found unrecognized key(s)',warninglist, 'for',k)
