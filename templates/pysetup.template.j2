@@ -12,7 +12,10 @@ setup(
         Extension(
             '_{{ apidef.preprefix }}{{ apidef.Prefix }}{{ apidef.premulti }}cc',
             sources=['{{ apidef.preprefix }}{{ apidef.Prefix }}{{ apidef.premulti }}cc_wrap.c', '../../C/api/{{ apidef.preprefix }}{{ apidef.Prefix }}{{ apidef.premulti }}cc.c'],
-            define_macros=[('PYPREFIX{{ apidef.Prefix.upper() }}', None), ('_CRT_SECURE_NO_WARNINGS', None)],
+            # disable warning about memory leak in swig/Lib/python/pyrun.swg
+            # we believe that we cannot do anything about it
+            # see also https://github.com/swig/swig/issues/2037
+            define_macros=[('PYPREFIX{{ apidef.Prefix.upper() }}', None), ('_CRT_SECURE_NO_WARNINGS', None), ('SWIG_PYTHON_SILENT_MEMLEAK', None)],
             include_dirs=['../../C/api']
         )
     ],
