@@ -183,6 +183,10 @@ C library code {{ api.generatedstr }}
 {%- endfor -%}
 {%- if fsti.value %}
 #include "gclgms.h"
+{%- else %}
+#ifndef GMS_SSSIZE
+#define GMS_SSSIZE 256
+#endif
 {%- endif %}
 
 {%- if apidef.Prefix == 'gdx' %}
