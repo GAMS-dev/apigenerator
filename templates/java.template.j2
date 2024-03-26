@@ -70,7 +70,12 @@ import java.io.File;
 
 public class {{ apidef.JavaCall }} {
 
-{#- write constants -#}
+{#- write integer constants -#}
+{%- for ikey,ivalue in apidef.iconst.elements.iterrows() %}
+   public static final int {{ ivalue['constant']}} = {{ ivalue['value']}};
+{% endfor %} {#- apidef.iconst #}
+
+{#- write integer constants #}
 {%- for key,value in apidef.cname.elements.iterrows() %}
     {%- set counter = namespace(pos = 1) -%}
     {%- for gkey,gvalue in apidef.gcon.elements[apidef.gcon.elements['group']==value['group']].iterrows()
@@ -82,7 +87,17 @@ public class {{ apidef.JavaCall }} {
     {%- endfor -%} {#- apidef.gcon #}
 {% endfor -%} {#- apidef.cname #}
 
-{# write string constants -#}
+{#- write double constants -#}
+{%- for dkey,dvalue in apidef.dconst.elements.iterrows() %}
+   public static final double {{ dvalue['constant']}} = {{ dvalue['value']}};
+{% endfor %} {#- apidef.dconst #}
+
+{#- write string constants -#}
+{%- for skey,svalue in apidef.sconst.elements.iterrows() %}
+   public static final String {{ svalue['constant']}} = "{{ svalue['value']}}";
+{% endfor %} {#- apidef.const #}
+
+{#- write string constants -#}
 {%- for key,value in apidef.csname.elements.iterrows() -%}
     {%- set counter = namespace(pos = 1) -%}
     {%- for gkey,gvalue in apidef.gstrcon.elements[apidef.gstrcon.elements['group']==value['group']].iterrows() 
@@ -92,7 +107,8 @@ public class {{ apidef.JavaCall }} {
         {%- if counter.pos == 1 %} /* {{ value['group'] }} */  {%- endif -%}
         {%- set counter.pos = counter.pos + 1 -%}
     {%- endfor -%} {#- apidef.gstrcon -#}
-{%- endfor -%} {#- apidef.csname #}
+{% endfor -%} {#- apidef.csname #}
+
    private long {{ apidef.Prefix }}Ptr = 0;
    public native static int    GetReady (String[] msg);
    public native static int    GetReadyD(String dirName, String[] msg);

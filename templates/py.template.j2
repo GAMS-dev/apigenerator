@@ -29,6 +29,11 @@ SWIG interface code {{ api.generatedstr }}
    {%- endif %}
 {% endif %}
 
+{#- writing integer constants #}
+{%- for ikey,ivalue in apidef.iconst.elements.iterrows() %}
+#define {{ ivalue['constant'] }} {{ ivalue['value'] }}
+{%- endfor -%} {#- apidef.iconst #}
+
 {#- writing enumerate constants #}
 {% for key,value in apidef.cname.elements.iterrows() %}
 enum {{ value['group'] }} {
@@ -41,6 +46,16 @@ enum {{ value['group'] }} {
         {%- set counter.cpos = counter.cpos + 1 -%}
     {%- endfor -%} {#- apidef.gcon #}  };
 {% endfor -%} {#- apidef.cname #}
+
+{#- writing double constants #}
+{%- for dkey,dvalue in apidef.dconst.elements.iterrows() %}
+#define {{ dvalue['constant'] }} {{ dvalue['value'] }}
+{%- endfor -%} {#- apidef.dconst #}
+
+{#- writing string constants #}
+{%- for skey,svalue in apidef.sconst.elements.iterrows() %}
+#define {{ svalue['constant'] }} "{{ svalue['value'] }}"
+{% endfor %} {#- apidef.sconst #}
 
 {#- writing string constants #}
 {% for key,value in apidef.csname.elements.iterrows() -%}

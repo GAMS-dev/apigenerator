@@ -6,7 +6,11 @@
     {%- set clibuse = true -%}
 {%- endif -%}
 {%- set const = false -%}
-{%- if apidef.gcon.elements.shape[0] > 0 or apidef.gstrcon.elements.shape[0] > 0 -%}
+{%- if apidef.gcon.elements.shape[0]    > 0 or 
+       apidef.gstrcon.elements.shape[0] > 0 or
+       apidef.iconst.elements.shape[0]  > 0 or  
+       apidef.dconst.elements.shape[0]  > 0 or  
+       apidef.sconst.elements.shape[0]  > 0    -%}
     {%- set const = true %}-
 {%- endif -%}
 
@@ -16,7 +20,13 @@
 {%- block content -%}
 {%- if (not clibuse) and (const) %}
 #define {{ apidef.Prefix.upper() }}APIVERSION {{ apidef.APIVersion }}
-{% for key,value in apidef.cname.elements.iterrows() %}
+{# writing integer constants #}
+{%- for ikey,ivalue in apidef.iconst.elements.iterrows() %}
+#define {{ ivalue['constant'] }} {{ ivalue['value'] }}
+{% endfor -%} {#- apidef.iconst #}
+
+{#- writing integer constants #}
+{%- for key,value in apidef.cname.elements.iterrows() %}
 enum {{ value['group'] }} {
     {%- set counter = namespace(pos = 1) -%}
     {%- for gkey,gvalue in apidef.gcon.elements[apidef.gcon.elements['group']==value['group']].iterrows() 
@@ -26,8 +36,19 @@ enum {{ value['group'] }} {
   {{ gvalue['constant'] }}{{ prettyWhiteSpace(len) }} = {{ gvalue['value'] }}
         {%- set counter.pos = counter.pos + 1 -%}
     {%- endfor -%} {#- apidef.gcon #}  };
-{%- endfor %}
+{% endfor %}
 
+{#- writing double constants #}
+{%- for dkey,dvalue in apidef.dconst.elements.iterrows() %}
+#define {{ dvalue['constant'] }} {{ dvalue['value'] }}
+{% endfor -%} {#- apidef.iconst #}
+
+{#- writing string constants #}
+{%- for skey,svalue in apidef.sconst.elements.iterrows() %}
+#define {{ svalue['constant'] }} "{{ svalue['value'] }}"
+{% endfor -%} {#- apidef.sconst #}
+
+{#- writing string constants #}
 {%- for key,value in apidef.csname.elements.iterrows() -%}
     {%- set counter = namespace(pos = 1) -%}
     {%- for gkey,gvalue in apidef.gstrcon.elements[apidef.gstrcon.elements['group']==value['group']].iterrows() 
@@ -37,7 +58,7 @@ enum {{ value['group'] }} {
         {%- if counter.pos == 1 %} /* {{ value['group'] }} */  {%- endif -%}
         {%- set counter.pos = counter.pos + 1 -%}
     {%- endfor -%} {#- apidef.gstrcon -#}
-{%- endfor %}
+{% endfor %}
 
 {%- endif %}
 {% endblock %}

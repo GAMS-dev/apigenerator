@@ -465,4 +465,21 @@ functionpointers:
 
 # Function pointer in properties
 # wrpmcb0P   .p.TMsgCallback0  .(0.result.void,1.mode.int,2.bufPtr.CPC)
+
+# Integer Double constants
+constants:
+  - wrpIntConstType:
+    - wrpInt_A  : 0
+    - wrpInt_B  : 1
+    - wrpInt_C  : 2
+  - wrpIntValue : 64
+  - wrpFloatValue  : -0.148759
+
+# String constants
+stringconstants:
+  - wrpStringValue : 'StringValue'
+  - wrpStringOptions :
+    - wrpString_Option1 : 'First Option'
+    - wrpString_Option2 : 'Second Option'
+    - wrpString_Option3 : 'Third Option'
 ...

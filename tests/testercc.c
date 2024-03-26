@@ -360,8 +360,35 @@ int main (int argc, char *argv[]) {
   printf("CHARRET Test\n");
   if (wrpC1(Tptr,wrpCR(Tptr))) wrperror(&rcall,"*** CHARRET Test failed!\n");
 
-  wrpFree(&Tptr);
+  printf("Constants Test\n");
+  int intValue = wrpIntValue;
+  if (intValue != 64) wrperror(&rcall,"*** Integer Max Integer Value Test failed!\n");
 
+  enum wrpIntConstType intVar = wrpInt_A;
+  if (intVar != 0) wrperror(&rcall,"*** Integer Constant Type A Test failed!\n");
+  intVar = wrpInt_B;
+  if (intVar != 1) wrperror(&rcall,"*** Integer Constant Type B Test failed!\n");
+  intVar = wrpInt_C;
+  if (intVar != 2) wrperror(&rcall,"*** Integer Constant Type C Test failed!\n");
+
+  float floatValue = wrpFloatValue;
+  if (fabs(floatValue + 0.148759) > 0.0001) 
+      wrperror(&rcall,"*** Float Constant Test failed!\n");
+
+  char *strValue = sst; 
+  strcpy(strValue, wrpStringValue);
+  if (strcmp("StringValue", strValue) != 0) wrperror(&rcall, "*** String Constant Test failed!\n");
+
+  strcpy(strValue, wrpString_Option1);
+  if (strcmp("First Option", strValue) != 0) wrperror(&rcall, "*** String Option1 Constant Test failed!\n");
+
+  strcpy(strValue, wrpString_Option2);
+  if (strcmp("Second Option", strValue) != 0) wrperror(&rcall, "*** String Option2 Constant Test failed!\n");
+
+  strcpy(strValue, wrpString_Option3);
+  if (strcmp("Third Option", strValue) != 0) wrperror(&rcall, "*** String Option3 Constant Test failed!\n");
+
+  wrpFree(&Tptr);
   printf("End of test %s on C library: %d failures\n\n", argv[0], rcall);
 
   return rcall;
