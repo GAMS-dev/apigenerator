@@ -135,7 +135,7 @@ class DataValidator(object):
             'prefix'           : { 'type': 'string' , 'required': True             },
             'apiversion'       : { 'type': 'integer', 'excludes': 'configurations' },
             'compatibleversion': { 'type': 'list'   , 'excludes': 'configurations' },
-            'note'             : { 'type' : 'string' },
+            'location'         : { 'type' : 'string' },
             'extracuse'        : { 'type': 'string'  },
             'extrause'         : { 'type': 'string'  },
             'extrausem'        : { 'type': 'string'  },
