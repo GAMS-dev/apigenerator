@@ -828,7 +828,7 @@ class APIGenerator:
 
         self.apidefKeysBoolean = ['multi', 'doc', 'trace','FCLIB','NOFORTRANCB', 'availifdefs', 'testmode']
         self.apidefKeysString  = ['Prefix','APIVersion','prexfix','multiprefix','premulti','prexfix','prexfixl','preprefix',
-                                  'OutputPath', 'description', 'location',
+                                  'OutputPath', 'note',
                                   'DelphiLib',
                                   'CLib','CCall','CDLink','CPPCall','CCB',
                                   'PySetup', 'vbaCall', 'vbnetCall', 'CSCall', 'JavaCall', 'JavaNI', 'CSCall',
@@ -1030,8 +1030,7 @@ class APIGenerator:
 
             self.apidef['preprefix']    = configuration['preprefix'] if 'preprefix' in configuration.keys() else ''
             self.apidef['testmode']     = configuration['testmode']  if 'testmode'  in configuration.keys() else False
-            self.apidef['description']  = ydata['description'] if 'description' in ydata.keys() else ''
-            self.apidef['location']     = ydata['location']    if 'location' in ydata.keys()    else ''
+            self.apidef['note']         = ydata['note'] if 'note' in ydata.keys() else ''
             self.apidef['doc']          = ydata['doc']         if 'doc' in ydata.keys()         else False
             self.apidef['trace']        = ydata['trace']       if 'trace' in ydata.keys()       else False
             self.apidef['OutputPath']   = args.outputpath
