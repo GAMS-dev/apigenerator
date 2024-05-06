@@ -1,9 +1,6 @@
 import pprint
 from cerberus import Validator
 
-class DataValidator(object):import pprint
-from cerberus import Validator
-
 class DataValidator(object):
     def type_arguments():
         return \
