@@ -1612,10 +1612,14 @@ class APIGenerator:
             self.print_help()
             raise APIGenerator.ArgumentParserError(message)
 
+def normalized_full_path(path_string):
+    script_dir = os.getcwd()
+    return os.path.normpath(os.path.join(script_dir, path_string))
+
 if __name__ == "__main__":
     parser = APIGenerator.ArgumentParser()
-    parser.add_argument('--apidef', type=str, required=True, help='API definition file')
-    parser.add_argument('--outputpath' , type=str, required=True, help='output directory')
+    parser.add_argument('--apidef', type=normalized_full_path, required=True, help='API definition file')
+    parser.add_argument('--outputpath' , type=normalized_full_path, required=True, help='output directory')
     parser.add_argument('--output' , nargs='*', help='list of output to override output from API definition file')
     parser.add_argument('--multi' , default=False, type=bool, help='force m in output name. Default=False')
     try:
