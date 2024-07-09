@@ -28,13 +28,17 @@ class Loader(yaml.Loader):
             return result
 
         else:
-            print('Error:: unrecognised node type in !include statement')
+            print('Error:: unrecognised node type in !include statement.')
             raise yaml.constructor.ConstructorError
 
     def extractFile(self, filename):
-        filepath = os.path.join(self._root, filename)
-        with open(filepath, 'r') as f:
-            return yaml.load(f, Loader)
+        try:
+            filepath = os.path.join(self._root, filename)
+            with open(filepath, 'r') as f:
+                return yaml.load(f, Loader)
+        except IOError:
+            print('The included file '+filepath+' does not exist.')
+            raise IOError
 
 if __name__ == "__main__":
     try:
@@ -45,4 +49,4 @@ if __name__ == "__main__":
            print( yaml.load(f, Loader ) )
            f.close()
     except IOError:
-        print('Error loading content of apilist.yaml or apilist.yaml does not exist')
+        print('Error loading content of apilist.yaml or apilist.yaml does not exist.')
