@@ -132,9 +132,12 @@ static {{ jniType(pfvalue['type']) }} {{ value['name'] }}_{{ pfvalue['arg'] }} =
 {% endfor -%} {#- f #}
 
 {%- if (apidef.haveTypedefs.elements.shape[0] > 0 and 
-        apidef.Prefix in apidef.haveTypedefs.elements['prefix'].tolist()) %}
+        apidef.Prefix in apidef.haveTypedefs.elements['prefix'].tolist()) -%}
+{%- if MaxDimStyle != 'gmd' %}
+{# not needed by GMD (otherwise we get build warnings) #}
 static char  ClassDotMethodName[512];
 static int   ReturnName = 0;
+{%- endif %}
 
 static void printerr(const char *mess, const char*name)
 {
