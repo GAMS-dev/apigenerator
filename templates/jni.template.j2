@@ -694,7 +694,7 @@ JNIEXPORT
    stringUEL local_{{ fvalue['arg'] }}[GLOBAL_MAX_INDEX_DIM];
    char *ptr_{{ fvalue['arg'] }}[GLOBAL_MAX_INDEX_DIM];
        {%- elif fvalue['type'] == 'funcptr'                                                           %}
-   char *local_{{ fvalue['arg'] }};
+   char *local_{{ fvalue['arg'] }} = NULL;
    int   have_{{ fvalue['arg'] }} = 0;
        {%- endif %}
        {%- if apidef.FuncMap.elements.shape[0] > 0 -%}
