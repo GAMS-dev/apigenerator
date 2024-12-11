@@ -145,7 +145,7 @@ enum {{ value['group'] }} {
     for(loc_i=0; loc_i<loc_dim; loc_i++){
       PyList_SetItem(list, loc_i, PyInt_FromLong($1[loc_i]));
     }
-    $result = SWIG_Python_AppendOutput($result, list);
+    $result = SWIG_AppendOutput($result, list);
 }
     {%- else             -%}
 %typemap(in, numinputs=0) int {{ arg }}_out[]{
@@ -164,7 +164,7 @@ enum {{ value['group'] }} {
     for(loc_i=0; loc_i<loc_dim; loc_i++){
       PyList_SetItem(list, loc_i, PyInt_FromLong($1[loc_i]));
     }
-    $result = SWIG_Python_AppendOutput($result, list);
+    $result = SWIG_AppendOutput($result, list);
 }
     {%- endif %}
 
@@ -180,7 +180,7 @@ enum {{ value['group'] }} {
     for(loc_i=0; loc_i<loc_dim; loc_i++){
       PyList_SetItem(list, loc_i, PyInt_FromLong($2[loc_i]));
     }
-    $result = SWIG_Python_AppendOutput($result, list);
+    $result = SWIG_AppendOutput($result, list);
 }
 {% endif %}
 
@@ -201,7 +201,7 @@ enum {{ value['group'] }} {
     for(loc_i=0; loc_i<5; loc_i++){
       PyList_SetItem(list, loc_i, PyFloat_FromDouble($1[loc_i]));
     }
-    $result = SWIG_Python_AppendOutput($result, list);
+    $result = SWIG_AppendOutput($result, list);
 }
 {% endfor -%} {#- fvrv #}
 
@@ -237,7 +237,7 @@ enum {{ value['group'] }} {
     for(loc_i=0; loc_i<loc_dim; loc_i++){
       PyList_SetItem(list, loc_i, PyString_FromString($1[loc_i]));
     }
-    $result = SWIG_Python_AppendOutput($result, list);
+    $result = SWIG_AppendOutput($result, list);
 }
 {% endfor -%} {#- fosi #}
 
@@ -251,7 +251,7 @@ enum {{ value['group'] }} {
     for(loc_i=0; loc_i<loc_dim; loc_i++){
       PyList_SetItem(list, loc_i, PyString_FromString($2[loc_i]));
     }
-    $result = SWIG_Python_AppendOutput($result, list);
+    $result = SWIG_AppendOutput($result, list);
 }
 {%- endif %}
 
@@ -273,7 +273,7 @@ enum {{ value['group'] }} {
     PyObject* sym_ptr = SWIG_NewPointerObj(SWIG_as_voidptr($2[loc_i]), SWIGTYPE_p_void, 0 |  0 );
     PyList_SetItem(list, loc_i, sym_ptr);
   }
-  $result = SWIG_Python_AppendOutput($result, list);
+  $result = SWIG_AppendOutput($result, list);
 }
 
 %typemap(in) void **vDomPtrIn{
@@ -320,7 +320,7 @@ long long val = 0;
 }
 
 %typemap(argout, fragment=SWIG_From_frag(long long)) INT64 *{{ arg }}_out{
-    $result = SWIG_Python_AppendOutput($result, SWIG_From_long_SS_long((long long)(*$1)));
+    $result = SWIG_AppendOutput($result, SWIG_From_long_SS_long((long long)(*$1)));
 }
 
 {%- endfor -%} {#- fvint64 #}
