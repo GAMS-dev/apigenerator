@@ -38,7 +38,7 @@ An API definition and configuration file describes a data definition of API and 
 
 Requires Python 3 (Tested with Python 3.11.3) with the following modules:
 - [Jinja](https://jinja.palletsprojects.com/), an extensible templating engine to render a document. (Tested with 3.1.2) 
-- [Ceberus](https://python-cerberus.org/), a schema and data validation tool for Python dictionaries. (Tested with 1.3.4)
+- [Cerberus](https://python-cerberus.org/), a schema and data validation tool for Python dictionaries. (Tested with 1.3.4)
 - [Pandas](https://pandas.pydata.org/), a data analysis and manipulation tool for Python programming language. (Tested with 2.0.2)
 - [PyYAML](https://pyyaml.org/), a YAML framework for the Python programming language. (Tested with 6.0)
 
