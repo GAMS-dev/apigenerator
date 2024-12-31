@@ -4,7 +4,7 @@ Python-based generator for GAMS API.
 
 The Python based API generator is based on an open source programming language (Python), a language template tool for Python (jinja2) and a human-readable structured file format (yaml) for describing API data definitions. The python script can generate, for a given API, API wrapper file(s) in targeted languges using the data definition from the API data definition file and the targeted language template file(s).
 
-The generator consists of the script (`mkapi.py`) located under `src/` and several templates of jinja2 language (`*.templates.j2`) located under `templates/`. Each template serves as a preset container to fill in data definition from a data definition and congiruation file using the Python script. For each API, the data definitions and configurations are expected to be defined in a yaml file. The output configuration that can be generated for each API are:
+The generator consists of the script (`mkapi.py`) located under `src/` and several templates of jinja2 language (`*.templates.j2`) located under `templates/`. Each template serves as a preset container to fill in data definition from a data definition and configuration file using the Python script. For each API, the data definitions and configurations are expected to be defined in a yaml file. The output configuration that can be generated for each API are:
   - `cc` - for C Function Interface (to generate `[API]cc.c` and `[API]cc.h`),
   - `cclib` - for C Callable Library (to generate `[API]cclib.c`)
   - `cclibdef` - for Microsoft Module-Definition file for C Library (to generate `[API]cclib*.def`)
@@ -16,7 +16,7 @@ The generator consists of the script (`mkapi.py`) located under `src/` and sever
 
 ## Data Definition and Configuration File
 
-An API definition and congiruation file describes a data definition of API and serves as an input for the script to fill in a template in order to create API code file(s). The definition and congiruation file is a yaml file containing: 
+An API definition and configuration file describes a data definition of API and serves as an input for the script to fill in a template in order to create API code file(s). The definition and configuration file is a yaml file containing: 
 
 - Generic API title (`title`)
 - Abbreviation (`prefix`)
