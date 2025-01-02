@@ -307,7 +307,7 @@ public static void main(String[] args) {
 
   System.out.println("Constants Test");
   int intValue = wrp.wrpIntValue;
-  if (intValue != 64) wrperror(rcall,"*** Integer Max Integer Vlaue Test failed!");
+  if (intValue != 64) wrperror(rcall,"*** Integer Max Integer Value Test failed!");
 
   intValue = wrp.wrpInt_A;
   if (intValue != 0) wrperror(rcall,"*** Integer Constant Type A Test failed!");

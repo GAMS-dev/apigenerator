@@ -510,7 +510,7 @@ namespace testercs
             Console.WriteLine("Constants Test");
             int intValue = c_wrpcs.wrpIntValue;
             if (intValue != 64) 
-                wrperror("*** Integer Max Integer Vlaue Test failed!");
+                wrperror("*** Integer Max Integer Value Test failed!");
 
             intValue = c_wrpcs.wrpInt_A;
             if (intValue != 0)

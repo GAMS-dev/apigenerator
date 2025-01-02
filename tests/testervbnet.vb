@@ -556,7 +556,7 @@ Module testervbnet
 
         intValue = wrpIntValue
         If intValue <> 64 Then
-            wrperror("*** Integer Max Integer Vlaue Test failed!")
+            wrperror("*** Integer Max Integer Value Test failed!")
         End If
 
         intValue = wrpInt_A

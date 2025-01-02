@@ -727,7 +727,7 @@ class Definition:
         apidef['dconst']        = { # double constants
                                          'columns' : ['constant', 'value'],
                                          'elements': pd.DataFrame() }
-        apidef['sconst']        = { # sring constants
+        apidef['sconst']        = { # string constants
                                          'columns' : ['constant', 'value'],
                                          'elements': pd.DataFrame() }
         apidef['gcon']          = { # group constants
