@@ -11,8 +11,7 @@
 #     define  _{{ apidef.Prefix.upper() }}CC_H_
 
 #define {{ apidef.Prefix.upper() }}APIVERSION {{ apidef.APIVersion  }}
-
-{#- writing integer constants #}
+{# writing integer constants -#}
 {%- for ikey,ivalue in apidef.iconst.elements.iterrows() %}
 #define {{ ivalue['constant'] }} {{ ivalue['value'] }}
 {% endfor -%} {#- apidef.iconst #}
@@ -34,7 +33,7 @@ enum {{ value['group'] }} {
 {#- write double constants #}
 {%- for dkey,dvalue in apidef.dconst.elements.iterrows() %}
 #define {{ dvalue['constant'] }} {{ dvalue['value'] }}
-{% endfor %} {#- apidef.iconst #}
+{% endfor %} {#- apidef.dconst #}
 
 {#- writing string constants #}
 {%- for skey,svalue in apidef.sconst.elements.iterrows() %}
