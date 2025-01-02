@@ -11,10 +11,13 @@
 #     define  _{{ apidef.Prefix.upper() }}CC_H_
 
 #define {{ apidef.Prefix.upper() }}APIVERSION {{ apidef.APIVersion  }}
+{# writing integer constants -#}
+{%- for ikey,ivalue in apidef.iconst.elements.iterrows() %}
+#define {{ ivalue['constant'] }} {{ ivalue['value'] }}
+{% endfor -%} {#- apidef.iconst #}
 
-{#- writing enumerate constants -#}
+{#- writing enumerate constants #}
 {%- for key,value in apidef.cname.elements.iterrows() %}
-
 enum {{ value['group'] }} {
     {%- set counter = namespace(cpos = 1) -%}
     {%- set gcon = apidef.gcon.elements[apidef.gcon.elements['group']==value['group']] -%}
@@ -23,8 +26,19 @@ enum {{ value['group'] }} {
   {{ gvalue['constant'] }}{{ prettyWhiteSpace(len) }} = {{ gvalue['value']}}
         {%- if counter.cpos < gcon.shape[0] -%} , {%- endif -%}
         {%- set counter.cpos = counter.cpos + 1 -%}
-    {%- endfor -%} {#- apidef.gcon #}  };
-{%- endfor -%} {#- apidef.cname #}
+    {%- endfor -%} {#- apidef.gcon #}
+};
+{% endfor %} {#- apidef.cname #}
+
+{#- write double constants #}
+{%- for dkey,dvalue in apidef.dconst.elements.iterrows() %}
+#define {{ dvalue['constant'] }} {{ dvalue['value'] }}
+{% endfor %} {#- apidef.dconst #}
+
+{#- writing string constants #}
+{%- for skey,svalue in apidef.sconst.elements.iterrows() %}
+#define {{ svalue['constant'] }} "{{ svalue['value'] }}"
+{% endfor %} {#- apidef.sconst #}
 
 {#- writing string constants #}
 {%- for key,value in apidef.csname.elements.iterrows() -%}
@@ -32,14 +46,13 @@ enum {{ value['group'] }} {
     {%- for gkey,gvalue in apidef.gstrcon.elements[apidef.gstrcon.elements['group']==value['group']].iterrows() -%}
         {%- set len = value['maxlen'] - gvalue['len'] %}
         {%- if counter.cstrpos == 1 %}
-
 #define {{ gvalue['constant'] }}{{ prettyWhiteSpace(len) }} "{{ gvalue['value'] }}"  /* {{ gvalue['group'] }} */
         {%- else                     %}
 #define {{ gvalue['constant'] }}{{ prettyWhiteSpace(len) }} "{{ gvalue['value'] }}"
         {%- endif -%}
         {%- set counter.cstrpos = counter.cstrpos + 1 -%}
     {%- endfor -%} {#- apidef.gstrcon #}
-{%- endfor -%} {#- apidef.csname #}
+{% endfor -%} {#- apidef.csname #}
 
 {#- needed to get __int64 with GCC from RTools #}
 {%- set haveInt64 = false -%}

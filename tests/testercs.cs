@@ -507,6 +507,43 @@ namespace testercs
             if (AdMCB0 != wrp.wrpFuncPtrR())
                 wrperror("*** FPTRRET Test failed!");
 
+            Console.WriteLine("Constants Test");
+            int intValue = c_wrpcs.wrpIntValue;
+            if (intValue != 64) 
+                wrperror("*** Integer Max Integer Value Test failed!");
+
+            intValue = c_wrpcs.wrpInt_A;
+            if (intValue != 0)
+                wrperror("*** Integer Constant Type A Test failed!");
+
+            intValue = c_wrpcs.wrpInt_B;
+            if (intValue != 1)
+                wrperror("*** Integer Constant Type B Test failed!");
+
+            intValue = c_wrpcs.wrpInt_C;
+            if (intValue != 2)
+                wrperror("*** Integer Constant Type C Test failed!");
+          
+            double floatValue = c_wrpcs.wrpFloatValue;
+            if (Math.Abs(floatValue + 0.148759) > 0.0001) 
+                wrperror("*** Double Constant Test failed!");
+
+            string strValue = c_wrpcs.wrpStringValue;
+            if (String.Compare(strValue, "StringValue", true) != 0)
+                wrperror("*** String Constant Test failed!");
+
+            strValue = c_wrpcs.wrpString_Option1;
+            if (String.Compare(strValue, "First Option", true) != 0)
+                wrperror("*** String Option1 Constant Test failed!");
+
+            strValue = c_wrpcs.wrpString_Option2;
+            if (String.Compare(strValue, "Second Option", true) != 0)
+                wrperror("*** String Option2 Constant Test failed!");
+
+            strValue = c_wrpcs.wrpString_Option3;
+            if (String.Compare(strValue, "Third Option", true) != 0)
+                wrperror("*** String Option3 Constant Test failed!");
+
             Console.WriteLine();
             Console.WriteLine("End of testercs: " + rc + " Failures");
             wrp.wrpFree();

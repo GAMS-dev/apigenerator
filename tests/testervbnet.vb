@@ -550,6 +550,57 @@ Module testervbnet
             wrperror("*** CHARRET Test failed!")
         End If
 
+        Console.WriteLine("Constants Test")
+        Dim intValue As Integer
+        Dim floatValue As Double
+
+        intValue = wrpIntValue
+        If intValue <> 64 Then
+            wrperror("*** Integer Max Integer Value Test failed!")
+        End If
+
+        intValue = wrpInt_A
+        If intValue <> 0 Then
+            wrperror("*** Integer Constant Type A Test failed!")
+        End If
+
+        intValue = wrpInt_B
+        If intValue <> 1 Then
+            wrperror("*** Integer Constant Type B Test failed!")
+        End If
+
+        intValue = wrpInt_C
+        If intValue <> 2 Then
+            wrperror("*** Integer Constant Type C Test failed!")
+        End If
+      
+        floatValue = wrpFloatValue
+        If Math.Abs(floatValue + 0.148759) > 0.0001 Then
+            wrperror("*** Double Constant Test failed!")
+        End If
+
+        Dim strValue As String
+
+        strValue = wrpStringValue
+        If String.Compare(strValue, "StringValue") <> 0 Then
+            wrperror("*** String Constant Test failed!")
+        End If
+
+        strValue = wrpString_Option1
+        If String.Compare(strValue, "First Option") <> 0 Then
+            wrperror("*** String Option1 Constant Test failed!")
+        End If
+
+        strValue = wrpString_Option2
+        If String.Compare(strValue, "Second Option") <> 0 Then
+            wrperror("*** String Option2 Constant Test failed!")
+        End If
+
+        strValue = wrpString_Option3
+        If String.Compare(strValue, "Third Option") <> 0 Then
+            wrperror("*** String Option3 Constant Test failed!")
+        End If
+
         Console.WriteLine()
         Console.WriteLine("End of testervbnet: " & rc & " Failures")
         wrpFree(objptr)

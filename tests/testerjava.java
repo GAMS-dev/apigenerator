@@ -302,8 +302,35 @@ public static void main(String[] args) {
   System.out.println("FPTRRET Test : "+wrp.FuncPtrR());
   if (wrp.FuncPtrR().compareTo("com/gams/tester/testerjava.msg1Callback") != 0) wrperror(rcall, "*** FPTRRET Test failed!");
 
-  System.out.println("CHAR1  Test");
+  System.out.println("CHAR1 Test");
   if (wrp.C1('G') != 0) wrperror(rcall,"*** CHAR1 Test failed!");
+
+  System.out.println("Constants Test");
+  int intValue = wrp.wrpIntValue;
+  if (intValue != 64) wrperror(rcall,"*** Integer Max Integer Value Test failed!");
+
+  intValue = wrp.wrpInt_A;
+  if (intValue != 0) wrperror(rcall,"*** Integer Constant Type A Test failed!");
+  intValue = wrp.wrpInt_B;
+  if (intValue != 1) wrperror(rcall,"*** Integer Constant Type B Test failed!");
+  intValue = wrp.wrpInt_C;
+  if (intValue != 2) wrperror(rcall,"*** Integer Constant Type C Test failed!");
+
+  double floatValue = wrp.wrpFloatValue;
+  if (Math.abs(floatValue + 0.148759) > 0.0001) 
+      wrperror(rcall,"*** Float Constant Test failed!");
+
+  String strValue = wrp.wrpStringValue;
+  if (!strValue.equals("StringValue")) wrperror(rcall, "*** String Constant Test failed!");
+
+  strValue = wrp.wrpString_Option1;
+  if (!strValue.equals("First Option")) wrperror(rcall, "*** String Option1 Constant Test failed!");
+
+  strValue = wrp.wrpString_Option2;
+  if (!strValue.equals("Second Option")) wrperror(rcall, "*** String Option2 Constant Test failed!");
+
+  strValue = wrp.wrpString_Option3;
+  if (!strValue.equals("Third Option")) wrperror(rcall, "*** String Option3 Constant Test failed!");
 
   wrp.Free();
   System.out.println("End of testerjava: " + rcall[0] + " failures");

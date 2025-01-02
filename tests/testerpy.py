@@ -513,6 +513,42 @@ if __name__ == "__main__":
         wrperror(rcall, "*** NOENTRYPROP Test failed!")
     
     --------------------------------------------------------------------'''
+
+    print("Constants Test")
+    intVar = wrpIntValue
+    if intVar != 64:
+        wrperror(rcall,"*** Integer Constant Type Test failed!")
+
+    intVar = wrpInt_A
+    if intVar != 0:
+        wrperror(rcall,"*** Integer Constant Type A Test failed!")
+    intVar = wrpInt_B
+    if intVar != 1:
+        wrperror(rcall,"*** Integer Constant Type B Test failed!")
+    intVar = wrpInt_C
+    if intVar != 2:
+        wrperror(rcall,"*** Integer Constant Type C Test failed!")
+
+    floatValue = wrpFloatValue
+    if abs(floatValue + 0.148759) > 0.0001 :
+        wrperror(rcall,"*** Float Constant Test failed!")
+    
+    strValue = wrpStringValue
+    if strValue != 'StringValue' :
+        wrperror(rcall, "*** String Constant Test failed!")
+
+    strValue = wrpString_Option1 
+    if strValue != 'First Option' :
+        wrperror(rcall, "*** String Option1 Constant Test failed!")
+
+    strValue = wrpString_Option2
+    if strValue != 'Second Option' : 
+        wrperror(rcall, "*** String Option2 Constant Test failed!")
+
+    strValue = wrpString_Option3
+    if strValue != 'Third Option' :
+        wrperror(rcall, "*** String Option3 Constant Test failed!")
+
     wrpFree(tptr)
     print("End of testerpy.py, "+ str(intp_value(rcall))+" failure(s)")
     

@@ -105,8 +105,12 @@ internal class {{ apidef.CSCall }}: IDisposable
     [DllImport("kernel32.dll")]
     public static extern bool FreeLibrary(IntPtr hModule);
 #endif
+{# write integer constants #}
+{%- for ikey,ivalue in apidef.iconst.elements.iterrows() %}
+    public const int {{ ivalue['constant']}} = {{ ivalue['value']}};
+{% endfor -%} {#- apidef.const #}
 
-{# write constants -#}
+{#- write group constants -#}
 {%- for key,value in apidef.cname.elements.iterrows() %}
     {%- set counter = namespace(pos = 1) -%}
     {%- for gkey,gvalue in apidef.gcon.elements[apidef.gcon.elements['group']==value['group']].iterrows()
@@ -118,8 +122,17 @@ internal class {{ apidef.CSCall }}: IDisposable
     {%- endfor -%} {#- apidef.gcon #}
 {% endfor -%} {#- apidef.cname #}
 
+{#- write double constants #}
+{%- for dkey,dvalue in apidef.dconst.elements.iterrows() %}
+    public const double {{ dvalue['constant']}} = {{ dvalue['value']}};
+{% endfor -%} {#- apidef.const #}
+
 {#- write string constants #}
-{%- for key,value in apidef.csname.elements.iterrows() -%}
+{%- for skey,svalue in apidef.sconst.elements.iterrows() %}
+    public const string {{ svalue['constant']}} = "{{ svalue['value']}}";
+{% endfor -%} {#- apidef.sconst #}
+
+{%- for key,value in apidef.csname.elements.iterrows() %}
     {%- set counter = namespace(pos = 1) -%}
     {%- for gkey,gvalue in apidef.gstrcon.elements[apidef.gstrcon.elements['group']==value['group']].iterrows() 
         if apidef.gstrcon.elements.shape[0] > 0 -%}
@@ -128,7 +141,7 @@ internal class {{ apidef.CSCall }}: IDisposable
         {%- if counter.pos == 1 %}  // {{ value['group'] }}  {%- endif -%}
         {%- set counter.pos = counter.pos + 1 -%}
     {%- endfor -%} {#- apidef.gstrcon -#}
-{%- endfor -%} {#- apidef.csname #}
+{% endfor %} {#- apidef.csname #}
 
 {%- if (apidef.haveTypedefs.elements.shape[0] > 0 and 
         apidef.Prefix in apidef.haveTypedefs.elements['prefix'].tolist()) -%}

@@ -21,16 +21,30 @@ Module {{ apidef.vbnetCall }}
     Friend Function FreeLibrary(ByVal hModule As IntPtr) As Boolean
     End Function
 
-{# write constants -#}
-{%- for key,value in apidef.cname.elements.iterrows() %}
+{# write integer constants -#}
+{%- for ikey,ivalue in apidef.iconst.elements.iterrows() %}
+    Public Const {{ ivalue['constant']}} As Integer = {{ ivalue['value']}}
+{% endfor -%} {#- apidef.iconst #}
 
+{#- write constants -#}
+{%- for key,value in apidef.cname.elements.iterrows() %}
     {%- set counter = namespace(cpos = 1) -%}
     {%- for gkey,gvalue in apidef.gcon.elements[apidef.gcon.elements['group']==value['group']].iterrows()
         if apidef.gcon.elements.shape[0] > 0 -%}
         {%- set len = value['maxlen'] - gvalue['len'] %}
-    Public Const {{ gvalue['constant'] }}{{ prettyWhiteSpace(len) }} = {{ gvalue['value']}}  '{{ value['group'] }}
+    Public Const {{ gvalue['constant'] }}{{ prettyWhiteSpace(len) }} As Integer = {{ gvalue['value']}}  '{{ value['group'] }}
     {%- endfor -%} {#- apidef.gcon #}
 {% endfor -%} {#- apidef.cname #}
+
+{#- write double constants -#}
+{%- for dkey,dvalue in apidef.dconst.elements.iterrows() %}
+   Public Const {{ dvalue['constant']}} As Double = {{ dvalue['value']}}R
+{% endfor %} {#- apidef.dconst #}
+
+{#- write constants -#}
+{%- for skey,svalue in apidef.sconst.elements.iterrows() %}
+    Public Const {{ svalue['constant']}} As String = "{{ svalue['value']}}"
+{% endfor -%} {#- apidef.sconst #}
 
 {#- write string constants -#}
 {%- for key,value in apidef.csname.elements.iterrows() %}
@@ -38,11 +52,11 @@ Module {{ apidef.vbnetCall }}
     {%- for gkey,gvalue in apidef.gstrcon.elements[apidef.gstrcon.elements['group']==value['group']].iterrows() 
         if apidef.gstrcon.elements.shape[0] > 0 -%}
         {%- set len = value['maxlen'] - gvalue['len'] %}
-    Public Const {{ gvalue['constant'] }}{{ prettyWhiteSpace(len) }} = "{{ gvalue['value']}}"
+    Public Const {{ gvalue['constant'] }}{{ prettyWhiteSpace(len) }} As String = "{{ gvalue['value']}}"
         {%- if counter.cpos == 1 %}   '{{ value['group'] }}  {%- endif -%}
         {%- set counter.cpos = counter.cpos + 1 -%}
     {%- endfor -%} {#- apidef.gstrcon #}
-{% endfor -%} {#- apidef.csname -#}
+{% endfor -%} {#- apidef.csname #}
 
 {%- if (apidef.haveTypedefs.elements.shape[0] > 0 and 
         apidef.Prefix in apidef.haveTypedefs.elements['prefix'].tolist()) %}
