@@ -1268,15 +1268,15 @@ class APIGenerator:
 
         if 'constants' in ydata.keys():
             ggroup,gconst,glen,gvalue = list(),list(),list(),list()
-            iconst, ilen, dconst, dlen = list(), list(), list(), list()
+            iconst, ivalue, dconst, dvalue = list(), list(), list(), list()
             for gc in ydata['constants']:
                 for k,v in gc.items():
                     if isinstance(v, int):
                         iconst.append(k)
-                        ilen.append(v)
+                        ivalue.append(v)
                     elif isinstance(v, float): 
                         dconst.append(k)
-                        dlen.append(v)
+                        dvalue.append(v)
                     else:
                         for vitem in v:
                             for gk, gv in vitem.items():
@@ -1284,8 +1284,8 @@ class APIGenerator:
                                 gconst.append(gk)
                                 glen.append(len(gk))
                                 gvalue.append(gv)
-            self.apidef['iconst']['elements'] = pd.DataFrame(list(zip(iconst, ilen)), columns=self.apidef['iconst']['columns'])
-            self.apidef['dconst']['elements'] = pd.DataFrame(list(zip(dconst, dlen)), columns=self.apidef['dconst']['columns'])
+            self.apidef['iconst']['elements'] = pd.DataFrame(list(zip(iconst, ivalue)), columns=self.apidef['iconst']['columns'])
+            self.apidef['dconst']['elements'] = pd.DataFrame(list(zip(dconst, dvalue)), columns=self.apidef['dconst']['columns'])
             self.apidef['gcon']['elements'] = pd.DataFrame(list(zip(ggroup, gconst, glen, gvalue)), columns=self.apidef['gcon']['columns'])
             group = self.apidef['gcon']['elements']['group'].drop_duplicates().tolist()
             maxLen = list()
@@ -1295,12 +1295,12 @@ class APIGenerator:
 
         if 'stringconstants' in ydata.keys():
             ggroup,gconst,glen,gvalue = list(),list(),list(),list()
-            sconst, slen = list(), list()
+            sconst, svalue = list(), list()
             for gc in ydata['stringconstants'] :
                 for k,v in gc.items():
                     if isinstance(v, str):
                         sconst.append(k)
-                        slen.append(v)
+                        svalue.append(v)
                     else:
                         for vitem in v:
                             for gk, gv in vitem.items():
@@ -1309,7 +1309,7 @@ class APIGenerator:
                                 glen.append(len(gk))
                                 gvalue.append(gv)
 
-            self.apidef['sconst']['elements'] = pd.DataFrame(list(zip(sconst, slen)), columns=self.apidef['sconst']['columns'])
+            self.apidef['sconst']['elements'] = pd.DataFrame(list(zip(sconst, svalue)), columns=self.apidef['sconst']['columns'])
             self.apidef['gstrcon']['elements']  = pd.DataFrame(list(zip(ggroup, gconst, glen, gvalue)), columns=self.apidef['gstrcon']['columns'])
             gname = self.apidef['gstrcon']['elements'].groupby('group')
             maxStrLen = list()
