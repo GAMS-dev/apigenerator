@@ -24,14 +24,14 @@ test-leg:
     tags: [linux]
     image:
         name: $CONTAINER_REG/machines/leg/builder-full:latest
-        entrypoint: [""]  
+        entrypoint: [""]
     script:
         - echo "Preaparing environment for python on leg"
         - source /etc/profile.d/legbuilder.sh
         - eval "$($MINICONDA shell.bash hook)"
-        - conda create -y -n wrptest-env-3.8 python=3.8
-        - conda activate wrptest-env-3.8
-        - conda install -y -c conda-forge swig=4.2.1
+        - conda create -y -n wrptest-env-3.10 python=3.10
+        - conda activate wrptest-env-3.10
+        - conda install -y -c conda-forge swig=4.4.0
         - echo "Building tests for apigenerated files on leg"
         - export GSYS=leg
         - export GCIA=lex
@@ -53,13 +53,13 @@ test-wei:
         name: $CONTAINER_REG/machines/wei/builder-full:latest
     script:
         - echo "Building tests for apigenerated files on wei"
-        - conda create -y -n wrptest-env-3.8 python=3.8
+        - conda create -y -n wrptest-env-3.10 python=3.10
         - conda env list
-        - conda activate wrptest-env-3.8
-        - $env:Path = "C:\Miniconda\envs\wrptest-env-3.8;C:\Miniconda\envs\wrptest-env-3.8\Scripts;" + $env:Path
+        - conda activate wrptest-env-3.10
+        - $env:Path = "C:\Miniconda\envs\wrptest-env-3.10;C:\Miniconda\envs\wrptest-env-3.10\Scripts;" + $env:Path
         - python --version
         - which python
-        - python -m pip install --force-reinstall -v "swig==4.2.1"
+        - python -m pip install --force-reinstall -v "swig==4.4.0"
         - which swig
         - cp tests/* tests/wrptest/
         - cp include/gamsglobals.* tests/wrptest/
@@ -89,9 +89,9 @@ test-deg:
     script:
         - echo "Preaparing environment for python on deg"
         - eval "$($MINICONDA shell.bash hook)"
-        - conda create -y -n wrptest-env-3.8 python=3.8
-        - conda activate wrptest-env-3.8
-        - conda install -y -c conda-forge swig=4.2.1
+        - conda create -y -n wrptest-env-3.10 python=3.10
+        - conda activate wrptest-env-3.10
+        - conda install -y -c conda-forge swig=4.4.0
         - echo "Building tests for apigenerated files on deg"
         - export GSYS=deg
         - export GCIA=dex
@@ -112,9 +112,9 @@ test-dac:
     script:
         - echo "Preaparing environment for python on dac"
         - eval "$($MINICONDA shell.bash hook)"
-        - conda create -y -n wrptest-env-3.8 python=3.8
-        - conda activate wrptest-env-3.8
-        - conda install -y -c conda-forge swig=4.2.1
+        - conda create -y -n wrptest-env-3.10 python=3.10
+        - conda activate wrptest-env-3.10
+        - conda install -y -c conda-forge swig=4.4.0
         - echo "Building tests for apigenerated files on dac"
         - export GSYS=dac
         - export GCIA=dax
