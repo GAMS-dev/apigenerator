@@ -77,7 +77,7 @@ enum {{ value['group'] }} {
 // but this is only save for input-values
 {%- endif %}
 {%- for arg in fcsi %}
-%typemap(in) char *{{ arg }}_in[](PyObject* stringList){
+%typemap(in) char *{{ arg }}_in[](PyObject* stringList = NULL){
   /* Check if is a list */
   if (PyList_Check($input)) {
     int i = 0;
@@ -259,8 +259,7 @@ enum {{ value['group'] }} {
 {#- This is ugly: We need some special treatment for vDomPtr arguments (distinguish by name if it is used as in or out argmunent, the type is vPtr in both cases) -#}
 {%- if apidef.Prefix.upper()=='GMD' %}
 //remove **vDomPtr_out from the agument list in python and create the void** in C
-%typemap(in, numinputs=0) void **vDomPtrOut{
-  void *domains[GMS_MAX_INDEX_DIM];
+%typemap(in, numinputs=0) void **vDomPtrOut (void *domains[GMS_MAX_INDEX_DIM]) {
   $1 = domains;
 }
 
@@ -310,8 +309,7 @@ enum {{ value['group'] }} {
 // special treatment for out Int64
 {%- endif %}
 {%- for arg in fint64 %}
-%typemap(in, fragment=SWIG_AsVal_frag(long long)) INT64 *{{ arg }}_out{
-long long val = 0;
+%typemap(in, fragment=SWIG_AsVal_frag(long long)) INT64 *{{ arg }}_out (long long val = 0){
     int ecode = SWIG_AsVal_long_SS_long($input, &val);
     if (!SWIG_IsOK(ecode)) {
         SWIG_exception_fail(SWIG_ArgError(ecode), "in method '" "$symname" "', argument " " of type '" "INT64""'");
@@ -338,8 +336,7 @@ long long val = 0;
   }
 }
 
-%typemap(in) void **{
-    void *$1__p;
+%typemap(in) void ** (void *$1__p){
     int res = SWIG_ConvertPtr($input,SWIG_as_voidptrptr(&$1__p), SWIGTYPE_p_void, 0);
     if (!SWIG_IsOK(res)) {
     SWIG_exception_fail(SWIG_ArgError(res), "in method '" "$symname" "', argument " " of type '" "void *""'");
