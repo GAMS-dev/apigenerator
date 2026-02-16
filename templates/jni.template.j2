@@ -55,6 +55,10 @@ Java Native Interface code {{ api.generatedstr }}
 #pragma GCC visibility push(default)
 #endif
 
+#ifdef _MSC_VER
+#define strdup _strdup
+#endif
+
 typedef union foo { void *p; jlong i; } u64_t;
 
 typedef char string255[256];
