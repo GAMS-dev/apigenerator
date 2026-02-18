@@ -55,6 +55,10 @@ Java Native Interface code {{ api.generatedstr }}
 #pragma GCC visibility push(default)
 #endif
 
+#ifdef _MSC_VER
+#define strdup _strdup
+#endif
+
 typedef union foo { void *p; jlong i; } u64_t;
 
 typedef char string255[256];
@@ -131,9 +135,17 @@ static {{ jniType(pfvalue['type']) }} {{ value['name'] }}_{{ pfvalue['arg'] }} =
    {%- endif -%}
 {% endfor -%} {#- f #}
 
+{%- set funcptr_type = namespace(value=false) -%}
+{%- for key,value in apidef.tfunc.elements.iterrows() if funcptr_type.value == false -%}
+   {%- if value['type'] == 'funcptr' %}
+       {%- set funcptr_type.value = true -%}
+   {%- endif -%}
+{%- endfor %}
+
 {%- if (apidef.haveTypedefs.elements.shape[0] > 0 and 
         apidef.Prefix in apidef.haveTypedefs.elements['prefix'].tolist()) -%}
-{%- if MaxDimStyle != 'gmd' %}
+
+{%- if MaxDimStyle != 'gmd' and funcptr_type.value == true %}
 {# not needed by GMD (otherwise we get build warnings) #}
 static char  ClassDotMethodName[512];
 static int   ReturnName = 0;
@@ -451,10 +463,12 @@ static {{ CType(tvalue['type']) }} {{ CCall(tvalue['type']) }} {{ apidef.Prefix.
    mid = (*env)->GetStaticMethodID(env, cls, methodname_{{ value['name'] }}_{{ value['arg'] }}, sig_{{ value['name'] }}_{{ value['arg'] }});
    if (mid==NULL)
       printerr("Static method not found",methodname_{{ value['name'] }}_{{ value['arg'] }});
+       {%- if funcptr_type.value == true %}
    if (ReturnName == 1) {
       sprintf(ClassDotMethodName,"%s.%s",classname_{{ value['name'] }}_{{ value['arg'] }},methodname_{{ value['name'] }}_{{ value['arg'] }});
                    {%- if tvalue['type']=='void' %}
       return; }
+        {%- endif -%}
                    {%- endif -%}
                    {%- for pfkey,pfvalue in apidef.PtrF.elements.iterrows() 
                        if pfvalue['name']==fmvalue['name'] and pfvalue['apos'] in tpp %}
@@ -593,6 +607,7 @@ static {{ CType(tvalue['type']) }} {{ CCall(tvalue['type']) }} {{ apidef.Prefix.
    mid = (*env)->GetStaticMethodID(env, cls, methodname_{{ fmvalue['def'] }}_prop, sig_{{ fmvalue['def'] }}_prop);
    if (mid==NULL)
       printerr("Static method not found",methodname_{{ fmvalue['def'] }}_prop);
+       {%- if funcptr_type.value == true %}
    if (ReturnName == 1) {
       sprintf(ClassDotMethodName,"%s.%s",classname_{{ fmvalue['def'] }}_prop,methodname_{{ fmvalue['def'] }}_prop);
 {#-
@@ -604,6 +619,7 @@ static {{ CType(tvalue['type']) }} {{ CCall(tvalue['type']) }} {{ apidef.Prefix.
             {% else                         %}
       return ({{ CType(tvalue['type']) }} {{ CCall(tvalue['type']) }}) 0; }
             {%- endif -%}
+        {%- endif -%}
             {%- for pfkey,pfvalue in apidef.PtrF.elements.iterrows() if pfvalue['name']==value['name']
                 if pfvalue['apos'] in tpp -%}
                 {%- if pfvalue['type'] == 'css'   %}
