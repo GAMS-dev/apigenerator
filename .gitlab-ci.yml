@@ -76,7 +76,7 @@ test-wei:
         - cp *.cs wrpcstest/
         - cp *wrp*.dll wrpcstest/
         - cd wrpcstest
-        - dotnet build -r win-x64 --output ./build -p:Nullable=disable
+        - dotnet build --output ./build -p:Nullable=disable
         - echo "This job test apigenerated files on wei"
         - $env:Path = "C:\builds\devel\apigenerator\tests\wrptest;" + $env:Path
         - $env:OSTYPE = "windows"
