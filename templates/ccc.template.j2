@@ -821,7 +821,7 @@ int {{ apidef.Prefix }}CreateDD ({{ apidef.Prefix }}Handle_t *p{{ apidef.Prefix 
   objectCount++;
   unlock(objMutex);
   return 1;                     /* return true on successful library load */
-} /* {{ apidef.Prefix }}CreateD */
+} /* {{ apidef.Prefix }}CreateDD */
 {% endif %}
 
 int {{ apidef.Prefix }}CreateL ({{ apidef.Prefix }}Handle_t *p{{ apidef.Prefix }}, const char *libName,
