@@ -124,14 +124,17 @@ int {{ apidef.Prefix }}CreateD   ({{ apidef.Prefix }}Handle_t *p{{ apidef.Prefix
 {%- if apidef.UseCD.elements.shape[0] > 0 -%}
    {%- if apidef.UseCD.elements[apidef.UseCD.elements['prefix']==apidef.Prefix].shape[0] > 0 %}
 
-/** {{ apidef.Prefix }}CreateDD: load library from the specified directory and create {{ apidef.Prefix }} object handle
+/** {{ apidef.Prefix }}CreateDD: load library from the specified directory and create {{ apidef.Prefix }} object handle.
+ *
+ * This variant of {{ apidef.Prefix }}CreateD ensures that the dirName argument is used for any subsequent internal object creation.
+ *
  * @return false on failure to load library, true on success 
  */
 int {{ apidef.Prefix }}CreateDD  ({{ apidef.Prefix }}Handle_t *p{{ apidef.Prefix }}, const char *dirName, char *msgBuf, int msgBufLen);
    {%- endif -%}
 {%- endif %}
 
-/** {{ apidef.Prefix }}Create: load library from the specified library name and create {{ apidef.Prefix }} object handle
+/** {{ apidef.Prefix }}CreateL: load library from the specified library name and create {{ apidef.Prefix }} object handle
  * @return false on failure to load library, true on success 
  */
 int {{ apidef.Prefix }}CreateL   ({{ apidef.Prefix }}Handle_t *p{{ apidef.Prefix }}, const char *libName, char *msgBuf, int msgBufLen);
