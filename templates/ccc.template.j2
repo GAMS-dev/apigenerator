@@ -149,7 +149,7 @@ typedef void ({{ apidef.Prefix.upper() }}_CALLCONV *{{ apidef.Prefix }}GetLoadPa
       {%- for fkey,fvalue in fnames[fnames['pos'].isin(tpp)].iterrows() %}
  * @param {{ fvalue['arg']}} {{ fvalue['text'] }}
       {%- endfor -%}
-      {%- set returnvalue = fnames[fnames['pos']==0] -%}
+      {%- set returnvalue = fnames[fnames['pos']=='0'] -%}
       {%- if returnvalue.shape[0] > 0 %}
         {%- set return = returnvalue['text'].iloc[0].split('\n') -%}
       {%- set counter = namespace(value=0) -%}
