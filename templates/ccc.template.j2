@@ -592,12 +592,14 @@ XLibraryLoad (const char *dllName, char *errBuf, int errBufSize)
    {%- endif %}
 {%- endif %}
 
+#ifndef CheckAndLoad
 #define CheckAndLoad(f,nargs,prefix) \
   if (!{{ apidef.prexfix }}Check(#f,nargs,s,errBuf)) \
     f = &d_##f; \
   else { \
     LOADIT(f,prefix #f); \
   }
+#endif
 
 {#-
 *put$sum(f(en,tpp,ea,'osi'),1) '#define PYCheckAndLoad(f,nargs,prefix) \' /
