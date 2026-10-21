@@ -66,12 +66,21 @@ test-wei:
         - cd tests
         - make
         - cd wrptest
-        - csc.exe /out:testercs.exe /platform:x64 testercs.cs c_wrpcs.cs gamsglobals.cs
         - vbc.exe /out:testervbnet.exe /platform:x64 testervbnet.vb c_wrpvbnet.vb gamsglobals.vb
+        - Invoke-WebRequest -Uri https://dot.net/v1/dotnet-install.ps1 -OutFile ./dotnet-install.ps1
+        - ./dotnet-install.ps1 -Channel 10.0 -InstallDir 'C:\Program Files\dotnet'
+        - dotnet --list-sdks
+        - $env:DOTNET_CLI_TELEMETRY_OPTOUT=1
+        - dotnet new console -o wrpcstest
+        - rm wrpcstest/*.cs
+        - cp *.cs wrpcstest/
+        - cp *wrp*.dll wrpcstest/
+        - cd wrpcstest
+        - dotnet build --output ./build -p:Nullable=disable
         - echo "This job test apigenerated files on wei"
         - $env:Path = "C:\builds\devel\apigenerator\tests\wrptest;" + $env:Path
         - $env:OSTYPE = "windows"
-        - cd ..
+        - cd ../..
         - sh apiwrappertest.sh
     artifacts:
         name: wrptest-wei

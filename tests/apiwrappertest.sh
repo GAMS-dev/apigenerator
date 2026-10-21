@@ -14,7 +14,7 @@ fails=0
 
 if [ ${OSTYPE} = windows ] ; then
    ${SRCDIR}/wrptest.run ${TESTDIR}/wrpccctest.exe || (( fails=fails+${?} ))
-   ${TESTDIR}/testercs.exe    || (( fails=fails+${?} ))
+   ${TESTDIR}/wrpcstest/build/wrpcstest.exe || (( fails=fails+${?} ))
    ${TESTDIR}/testervbnet.exe || (( fails=fails+${?} ))
 else
    ${SRCDIR}/wrptest.run ${TESTDIR}/wrpccctest || (( fails=fails+${?} ))

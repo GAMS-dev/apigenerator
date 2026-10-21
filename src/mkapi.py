@@ -894,6 +894,10 @@ class APIGenerator:
     ''' Generate C# Wrapper '''
     def generateCSWrapper(self):
         Definition.initCSTypemapData(self.datadef)
+        # dotnet.template.j2 for .net10 output
+        self.apidef['CSCall'] = self.apidef['preprefix'] + self.apidef['Prefix'] + self.apidef['premulti']
+        self.generateFileFromTemplate(self.apidef['CSCall']+'.cs', 'dotnet', self.apidef['OutputPath'])
+        # cs.template.j2 for .net4 output
         self.apidef['CSCall'] = self.apidef['preprefix'] + self.apidef['Prefix'] + self.apidef['premulti'] + 'cs'
         self.generateFileFromTemplate(self.apidef['CSCall']+'.cs', 'cs', self.apidef['OutputPath'])
 
