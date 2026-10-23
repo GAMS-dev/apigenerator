@@ -2,6 +2,7 @@
 
 {%- block header -%}
 Imports System.Runtime.InteropServices
+Imports System.Runtime.Versioning
 Imports System.Text
 
 Module {{ apidef.vbnetCall }}
@@ -11,15 +12,16 @@ Module {{ apidef.vbnetCall }}
 {%- block content %}
     Dim extHandle As Boolean
 
-    <DllImport("kernel32.dll", CharSet:=CharSet.Auto, SetLastError:=True)> _
-    Public Function LoadLibrary(<[In](), MarshalAs(UnmanagedType.LPTStr)> ByVal lpFileName As String) As IntPtr
-    End Function
-    <DllImport("kernel32.dll", ExactSpelling:=True, SetLastError:=True)> _
-    Public Function GetProcAddress(ByVal hmodule As IntPtr, ByVal procedureName As String) As IntPtr
-    End Function
-    <DllImport("kernel32.dll", CharSet:=CharSet.Auto, SetLastError:=True)> _
-    Friend Function FreeLibrary(ByVal hModule As IntPtr) As Boolean
-    End Function
+    Private ReadOnly LoadLibrary As Func(Of String, IntPtr) =
+        Function(dllName) NativeLibrary.Load(dllName)
+    Private ReadOnly GetProcAddress As Func(Of IntPtr, String, IntPtr) =
+        Function(hModule, procName) NativeLibrary.GetExport(hModule, procName)
+
+    Private ReadOnly FreeLibrary As Func(Of IntPtr, Boolean) =
+        Function(hModule)
+            NativeLibrary.Free(hModule)
+            Return True
+        End Function
 
 {# write integer constants -#}
 {%- for ikey,ivalue in apidef.iconst.elements.iterrows() %}
@@ -564,14 +566,22 @@ symMissing:
         Return False
     End Function ' XLibraryLoad
 
+    <SupportedOSPlatformGuard("windows")>
+    Public ReadOnly IsWindows As Boolean = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+    <SupportedOSPlatformGuard("linux")>
+    Public ReadOnly IsLinux As Boolean = RuntimeInformation.IsOSPlatform(OSPlatform.Linux)
+    <SupportedOSPlatformGuard("osx")>
+    Public ReadOnly IsMac As Boolean = RuntimeInformation.IsOSPlatform(OSPlatform.OSX)
+
     Private Function libLoader(ByVal dllPath As String, ByVal dllName As String, ByRef msgBuf As String) As Boolean
+        Dim libSuffix As String = If(IsWindows, ".dll", If(IsMac, ".dylib", ".so"))
 {%- if apidef.CLibUse.elements.shape[0] > 0 and apidef.Prefix in apidef.CLibUse.elements['prefix'].tolist()  %}
-        Const libStem As String = "{{ apidef.CLib }}", libExt = ".dll"
+        Dim libStem As String = If(IsWindows, "{{ apidef.CLib }}", If(IsLinux, "lib{{ apidef.CLib }}", If(IsMac, "lib{{ apidef.CLib }}", "???")))        
 {%- else                                                                                                     %}
-        Const libStem As String = "{{ apidef.DelphiLib }}", libExt = ".dll"
+        Dim libStem As String = If(IsWindows, "{{ apidef.DelphiLib }}", If(IsLinux, "lib{{ apidef.DelphiLib }}", If(IsMac, "lib{{ apidef.DelphiLib }}", "???")))        
 {%- endif %}
         Dim dllNameBuf As String = String.Empty
-        Dim GMS_DLL_SUFFIX As String = String.Empty
+        Dim bitsuf As String = String.Empty
 
         msgBuf = String.Empty
         If Not isLoaded Then
@@ -586,9 +596,9 @@ symMissing:
                 dllNameBuf = dllNameBuf + dllName
             Else
                 If (8 = IntPtr.Size) Then
-                    GMS_DLL_SUFFIX = "64"
+                    bitsuf = "64"
                 End If
-                dllNameBuf = dllNameBuf + libStem + GMS_DLL_SUFFIX + libExt
+                dllNameBuf = dllNameBuf + libStem + bitsuf + libSuffix
             End If
 
             isLoaded = XLibraryLoad(dllNameBuf, msgBuf)

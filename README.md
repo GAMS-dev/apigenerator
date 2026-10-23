@@ -10,7 +10,7 @@ The generator consists of the script (`mkapi.py`) located under `src/` and sever
   - `cclibdef` - for Microsoft Module-Definition file for C Library (to generate `[API]cclib*.def`)
   - `cb` - for C Callback Interface (to generate `[API]ccb1.h` and `[API]ccb2.h`)
   - `py` - for (to generate `[API]cc.i`) and (to generate `[API]setup.py`)
-  - `vb` - for Visual Basic for Apllication callable library (to generate `[API]vba.bas`) and Visual Basic .Net callable library (to generate `[API]vbnet.vb`)
+  - `vb` - for Visual Basic for Apllication callable library (to generate `[API]vba.bas`) and Visual Basic .Net callable library (to generate `[API]vbnet.vb` for .NET4 and `[API].vb` for .NET10)
   - `cs` - for C Sharp Callable Library (to generate `[API]cs.cs` for .NET4 and `[API].cs` for .NET10)
   - `java` - for Java interface (to generate `[API].java`) and Java native interface (to generate `[API]jni.c`)
 
