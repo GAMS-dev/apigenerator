@@ -10,8 +10,8 @@ Module testervbnet
     Dim w As Integer = 0
     Dim z As Integer = 0
 
-    Dim objptr As Integer
-    Dim objptr2 As Integer
+    Dim objptr As IntPtr
+    Dim objptr2 As IntPtr
 
     Sub wrperror(ByVal err As String)
         rc = rc + 1
