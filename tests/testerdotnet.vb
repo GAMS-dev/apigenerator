@@ -1,4 +1,4 @@
-Module testervbnet
+Module testerdotnet
     Dim rc As Integer = 0
     Dim cb1count As Integer = 0
     Dim cb1count2 As Integer = 0
@@ -148,7 +148,7 @@ Module testervbnet
         Dim Msg As String = String.Empty
         Dim AdMCB0 As tmsgcallback0
 
-        Console.WriteLine("Start of testervbnet")
+        Console.WriteLine("Start of testerdotnet (VB)")
 
         If Not wrpcreate(objptr, Msg) Then
             Console.WriteLine("*** Error during initialization!")
@@ -602,7 +602,7 @@ Module testervbnet
         End If
 
         Console.WriteLine()
-        Console.WriteLine("End of testervbnet: " & rc & " Failures")
+        Console.WriteLine("End of testerdotnet (VB): " & rc & " Failures")
         wrpFree(objptr)
 
         Environment.Exit(rc)

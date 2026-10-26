@@ -3,9 +3,9 @@ using System.Runtime.InteropServices;
 using System.Collections.Generic;
 using System.Text;
 
-namespace testercs
+namespace testerdotnet
 {
-    class testercs
+    class testerdotnet
     {
         static int rc = 0;
         static int cb1count = 0;
@@ -169,11 +169,11 @@ namespace testercs
             string[] ssti = new string[gamsglobals.maxdim];
             double[] sval = new double[gamsglobals.sv_max];
             string Msg="";
-            c_wrpcs.TMsgCallback0 AdMCB0;
+            c_wrp.TMsgCallback0 AdMCB0;
 
-            Console.WriteLine("Start of Testercs");
+            Console.WriteLine("Start of testerdotnet (C#)");
 
-            c_wrpcs wrp = new c_wrpcs(ref Msg);
+            c_wrp wrp = new c_wrp(ref Msg);
             if (Msg != String.Empty)
             {
                 Console.WriteLine("*** Error during initialization: " + Msg);
@@ -379,7 +379,7 @@ namespace testercs
             cb1count = 0;
             cb1count2 = 0;
             cb2count = 0;
-            c_wrpcs wrp2 = new c_wrpcs(ref Msg);
+            c_wrp wrp2 = new c_wrp(ref Msg);
             if (Msg != String.Empty)
             {
                 Console.WriteLine("*** Error during initialization: " + Msg);
@@ -508,44 +508,44 @@ namespace testercs
                 wrperror("*** FPTRRET Test failed!");
 
             Console.WriteLine("Constants Test");
-            int intValue = c_wrpcs.wrpIntValue;
+            int intValue = c_wrp.wrpIntValue;
             if (intValue != 64) 
                 wrperror("*** Integer Max Integer Value Test failed!");
 
-            intValue = c_wrpcs.wrpInt_A;
+            intValue = c_wrp.wrpInt_A;
             if (intValue != 0)
                 wrperror("*** Integer Constant Type A Test failed!");
 
-            intValue = c_wrpcs.wrpInt_B;
+            intValue = c_wrp.wrpInt_B;
             if (intValue != 1)
                 wrperror("*** Integer Constant Type B Test failed!");
 
-            intValue = c_wrpcs.wrpInt_C;
+            intValue = c_wrp.wrpInt_C;
             if (intValue != 2)
                 wrperror("*** Integer Constant Type C Test failed!");
           
-            double floatValue = c_wrpcs.wrpFloatValue;
+            double floatValue = c_wrp.wrpFloatValue;
             if (Math.Abs(floatValue + 0.148759) > 0.0001) 
                 wrperror("*** Double Constant Test failed!");
 
-            string strValue = c_wrpcs.wrpStringValue;
+            string strValue = c_wrp.wrpStringValue;
             if (String.Compare(strValue, "StringValue", true) != 0)
                 wrperror("*** String Constant Test failed!");
 
-            strValue = c_wrpcs.wrpString_Option1;
+            strValue = c_wrp.wrpString_Option1;
             if (String.Compare(strValue, "First Option", true) != 0)
                 wrperror("*** String Option1 Constant Test failed!");
 
-            strValue = c_wrpcs.wrpString_Option2;
+            strValue = c_wrp.wrpString_Option2;
             if (String.Compare(strValue, "Second Option", true) != 0)
                 wrperror("*** String Option2 Constant Test failed!");
 
-            strValue = c_wrpcs.wrpString_Option3;
+            strValue = c_wrp.wrpString_Option3;
             if (String.Compare(strValue, "Third Option", true) != 0)
                 wrperror("*** String Option3 Constant Test failed!");
 
             Console.WriteLine();
-            Console.WriteLine("End of testercs: " + rc + " Failures");
+            Console.WriteLine("End of testerdotnet (C#): " + rc + " Failures");
             wrp.wrpFree();
             
             return rc;
