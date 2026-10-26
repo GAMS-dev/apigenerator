@@ -164,7 +164,7 @@ else ifeq ($(OSTYPE),windows)
 endif
 endif
 
-.PHONY: all clean
+.PHONY: all clean dotnet
 
 ifeq ($(HOSTTYPE), unix)
 all: $(OUTPUT_DIR) $(OUTPUT_DIR)/libc_wrpcclib64.$(SHLIBEXT) $(OUTPUT_DIR)/libc_wrpjni64.$(SHLIBEXT) $(OUTPUT_DIR)/wrpccctest java python
@@ -261,6 +261,13 @@ $(OUTPUT_DIR)/_c_wrpcc.*: $(OUTPUT_DIR)/c_wrpcc.i $(OUTPUT_DIR)/c_wrpsetup.py $(
 	)
 #		CC=$(CC) CFLAGS="-DLEG -DCIA_LEX -O -Wall -DFNAME_LCASE_DECOR -fPIC -fvisibility=hidden -DGC_NO_MUTEX" LDSHARED="$(CC) -nostartfiles -shared -Wl,-Bsymbolic -pthread  -Wl,-rpath,\$ORIGIN" python c_wrpsetupx.py build --build-lib . \
 
+# .NET 10 wrapper tests, built separately from 'all' (requires dotnet)
+DOTNET ?= dotnet
+
+dotnet: $(OUTPUT_DIR)/c_wrp.cs $(OUTPUT_DIR)/c_wrp.vb
+	$(DOTNET) build testerdotnetcs.csproj --output $(OUTPUT_DIR)/testerdotnetcs
+	$(DOTNET) build testerdotnetvb.vbproj --output $(OUTPUT_DIR)/testerdotnetvb
+
 clean:
 	rm -rf $(OUTPUT_DIR)/com $(OUTPUT_DIR)/build
 	rm -rf $(OUTPUT_DIR)/*.o $(OUTPUT_DIR)/*.obj
@@ -270,3 +277,4 @@ clean:
 	rm -rf $(OUTPUT_DIR)/wrpccctest*
 	rm -rf $(OUTPUT_DIR)/*wrpcclib64*.*
 	rm -rf $(OUTPUT_DIR)/*wrpjni64*.*
+	rm -rf $(OUTPUT_DIR)/testerdotnetcs $(OUTPUT_DIR)/testerdotnetvb $(OUTPUT_DIR)/obj
