@@ -1,1 +1,3 @@
 src/.venv 
+tests/wrptest/
+src/__pycache__/
