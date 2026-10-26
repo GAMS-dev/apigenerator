@@ -921,7 +921,7 @@ class APIGenerator:
         self.generateFileFromTemplate(self.apidef['vbaCall']+'.bas', 'vba', self.apidef['OutputPath'])
         # vbdotnet.template.j2 for .net10 output
         self.apidef['vbnetCall']  = self.apidef['preprefix'] + self.apidef['Prefix'] + self.apidef['premulti']
-        self.generateFileFromTemplate(self.apidef['Prefix']+'.vb', 'vbdotnet', self.apidef['OutputPath'])
+        self.generateFileFromTemplate(self.apidef['vbnetCall']+'.vb', 'vbdotnet', self.apidef['OutputPath'])
         # vbnet.template.j2 for .net4 output
         self.apidef['vbnetCall']  = self.apidef['preprefix'] + self.apidef['Prefix'] + self.apidef['premulti'] + 'vbnet'
         self.generateFileFromTemplate(self.apidef['vbnetCall']+'.vb', 'vbnet', self.apidef['OutputPath'])
