@@ -1401,13 +1401,13 @@ class APIGenerator:
                 del df['type']
                 del df['text']
                 self.apidef['FuncMap']['elements'] = df.drop_duplicates()
-                self.apidef['FuncMap']['elements'].reset_index(drop=True, inplace=True)
+                self.apidef['FuncMap']['elements'] = self.apidef['FuncMap']['elements'].reset_index(drop=True)
 
                 df = self.apidef['FuncPtrDef']['elements'].copy()
                 del df['def']
                 del df['fpos']
                 self.apidef['PtrF']['elements'] = df.drop_duplicates()
-                self.apidef['PtrF']['elements'].reset_index(drop=True, inplace=True)
+                self.apidef['PtrF']['elements'] = self.apidef['PtrF']['elements'].reset_index(drop=True)
 
             if len(farrlen) > 0:
                 frames = [ self.apidef['pArrLen']['elements'],
@@ -1416,8 +1416,8 @@ class APIGenerator:
 
                 df = self.apidef['pArrLen']['elements']
                 index_names = df[df['value']==0].index
-                self.apidef['pArrLen']['elements'].drop(index_names, inplace=True)
-                self.apidef['pArrLen']['elements'].reset_index(drop=True, inplace=True)
+                self.apidef['pArrLen']['elements'] = self.apidef['pArrLen']['elements'].drop(index_names)
+                self.apidef['pArrLen']['elements'] = self.apidef['pArrLen']['elements'].reset_index(drop=True)
 
             if len(self.apidef['PtrF']['elements']) > 0:
                 df = self.apidef['PtrF']['elements']
@@ -1483,21 +1483,21 @@ class APIGenerator:
         df = self.apidef['f']['elements']
         enstring = df[df['type'].isin(list(self.datadef['tass']['elements']['ta']))]['name'].copy()
         fs = df[df['name'].isin(list(enstring))]  # no record with (0.result)
-        enstring.reset_index(drop=True, inplace=True)
-        fs.reset_index(drop=True, inplace=True)
+        enstring = enstring.reset_index(drop=True)
+        fs = fs.reset_index(drop=True)
         enostringa = df[df['type'] == 'osi']['name'].copy()
-        enostringa.reset_index(drop=True, inplace=True)
+        enostringa = enostringa.reset_index(drop=True)
 
         fost = df[df['type'].isin(['osi', 'oss', 'xss' ])]['name'].copy()
-        fost.reset_index(drop=True, inplace=True)
+        fost = fost.reset_index(drop=True)
         fstr = df[df['type'].isin(list(self.datadef['tass']['elements']['ta']))]['name'].copy()
-        fstr.reset_index(drop=True, inplace=True)
+        fstr = fstr.reset_index(drop=True)
         farr = df[df['type'].isin(list(self.datadef['taar']['elements']['ta']))]['name'].copy()
-        farr.reset_index(drop=True, inplace=True)
+        farr = farr.reset_index(drop=True)
         fsti = df[df['type'].isin(['osi', 'csi' ])]['name'].copy()
-        fsti.reset_index(drop=True, inplace=True)
+        fsti = fsti.reset_index(drop=True)
         fstiV = df[ (df['name'].isin(list(fsti))) & (df['arg']=='aDim') & (df['type']=='vint') ].copy()
-        fstiV.reset_index(drop=True, inplace=True)
+        fstiV = fstiV.reset_index(drop=True)
         self.apidef['enstring']['elements'] = pd.DataFrame(enstring)
         self.apidef['enostringa']['elements'] = pd.DataFrame(enostringa)
         self.apidef['fs']['elements'] = pd.DataFrame(fs, columns=self.apidef['fs']['columns'])
