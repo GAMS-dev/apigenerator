@@ -586,10 +586,9 @@ symMissing:
         msgBuf = String.Empty
         If Not isLoaded Then
             If String.Empty <> dllPath Then
-                If Not dllPath.EndsWith("\") Then
-                    dllNameBuf = dllPath & "\"
-                Else
-                    dllNameBuf = dllPath
+                dllNameBuf = dllPath
+                If IO.Path.DirectorySeparatorChar <> dllNameBuf(dllNameBuf.Length - 1) Then
+                    dllNameBuf = dllNameBuf & IO.Path.DirectorySeparatorChar
                 End If
             End If
             If String.Empty <> dllName Then
