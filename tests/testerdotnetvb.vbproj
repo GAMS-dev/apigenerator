@@ -1,0 +1,26 @@
+<!-- .NET 10 VB.NET wrapper test: testerdotnet.vb against the generated c_wrp.vb -->
+<!-- explicit Sdk imports, so that intermediate files go to wrptest/ instead of tests/obj/ -->
+<Project>
+
+  <PropertyGroup>
+    <BaseIntermediateOutputPath>wrptest/obj/testerdotnetvb/</BaseIntermediateOutputPath>
+  </PropertyGroup>
+
+  <Import Project="Sdk.props" Sdk="Microsoft.NET.Sdk" />
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>testerdotnetvb</AssemblyName>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="testerdotnet.vb" />
+    <Compile Include="wrptest/c_wrp.vb" />
+    <Compile Include="../include/gamsglobals.vb" />
+  </ItemGroup>
+
+  <Import Project="Sdk.targets" Sdk="Microsoft.NET.Sdk" />
+
+</Project>

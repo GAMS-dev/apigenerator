@@ -26,14 +26,22 @@ test-leg:
         name: $CONTAINER_REG/machines/leg/builder-full:latest
     script:
         - echo "Preaparing environment for python on leg"
-        - yum install -y python312 python3.12-pip python3.12-devel
+        - yum install -y python312 python3.12-pip python3.12-devel libicu
         - ln -s /usr/bin/python3 /usr/bin/python
         - pip3 install swig==4.4.0
+        - echo "Preparing environment for .NET 10 on leg"
+        - export DOTNET_CLI_TELEMETRY_OPTOUT=1
+        - curl -sSL https://dot.net/v1/dotnet-install.sh -o dotnet-install.sh
+        - bash dotnet-install.sh --channel 10.0 --install-dir $CI_PROJECT_DIR/.dotnet
+        - export DOTNET_ROOT=$CI_PROJECT_DIR/.dotnet
+        - export PATH=$DOTNET_ROOT:$PATH
+        - dotnet --list-sdks
         - echo "Building tests for apigenerated files on leg"
         - export GSYS=leg
         - export GCIA=lex
         - cd tests
         - make
+        - make dotnet
         - echo "This job test apigenerated files on leg"
         - OSTYPE=linux ./apiwrappertest.sh
     artifacts:
@@ -65,22 +73,18 @@ test-wei:
         - $env:GCIA = "wex"
         - cd tests
         - make
-        - cd wrptest
-        - vbc.exe /out:testervbnet.exe /platform:x64 testervbnet.vb c_wrpvbnet.vb gamsglobals.vb
+        - $env:DOTNET_CLI_TELEMETRY_OPTOUT=1
         - Invoke-WebRequest -Uri https://dot.net/v1/dotnet-install.ps1 -OutFile ./dotnet-install.ps1
         - ./dotnet-install.ps1 -Channel 10.0 -InstallDir 'C:\Program Files\dotnet'
         - dotnet --list-sdks
-        - $env:DOTNET_CLI_TELEMETRY_OPTOUT=1
-        - dotnet new console -o wrpcstest
-        - rm wrpcstest/*.cs
-        - cp *.cs wrpcstest/
-        - cp *wrp*.dll wrpcstest/
-        - cd wrpcstest
-        - dotnet build --output ./build -p:Nullable=disable
+        - make dotnet
+        - cd wrptest
+        - csc.exe /out:testercs.exe /platform:x64 testercs.cs c_wrpcs.cs gamsglobals.cs
+        - vbc.exe /out:testervbnet.exe /platform:x64 testervbnet.vb c_wrpvbnet.vb gamsglobals.vb
         - echo "This job test apigenerated files on wei"
         - $env:Path = "C:\builds\devel\apigenerator\tests\wrptest;" + $env:Path
         - $env:OSTYPE = "windows"
-        - cd ../..
+        - cd ..
         - sh apiwrappertest.sh
     artifacts:
         name: wrptest-wei
@@ -104,7 +108,7 @@ test-deg:
         - cd tests
         - make
         - echo "This job test apigenerated files on deg"
-        - OSTYPE=macos ./apiwrappertest.sh
+        - WRP_SKIP_DOTNET=1 OSTYPE=macos ./apiwrappertest.sh
     artifacts:
         name: wrptest-deg
         expire_in: 2 hours
@@ -121,11 +125,19 @@ test-dac:
         - conda create -y -n wrptest-env-3.10 python=3.10
         - conda activate wrptest-env-3.10
         - conda install -y -c conda-forge swig=4.4.0
+        - echo "Preparing environment for .NET 10 on dac"
+        - export DOTNET_CLI_TELEMETRY_OPTOUT=1
+        - curl -sSL https://dot.net/v1/dotnet-install.sh -o dotnet-install.sh
+        - bash dotnet-install.sh --channel 10.0 --install-dir $CI_PROJECT_DIR/.dotnet
+        - export DOTNET_ROOT=$CI_PROJECT_DIR/.dotnet
+        - export PATH=$DOTNET_ROOT:$PATH
+        - dotnet --list-sdks
         - echo "Building tests for apigenerated files on dac"
         - export GSYS=dac
         - export GCIA=dax
         - cd tests
         - make
+        - make dotnet
         - echo "This job test apigenerated files on dac"
         - OSTYPE=macos ./apiwrappertest.sh
     artifacts:
